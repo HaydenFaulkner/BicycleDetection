@@ -4,6 +4,7 @@ data_processing.image contains functions for processing video and image data
 """
 import os
 import shutil
+import numpy as np
 import cv2
 
 
@@ -120,4 +121,4 @@ def extract_frames(video_path, get_frames=-1, save_path=None):
             shutil.rmtree(save_path)
         return None
 
-    return frames
+    return np.array(frames)
