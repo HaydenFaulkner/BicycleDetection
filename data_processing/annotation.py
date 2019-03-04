@@ -6,6 +6,8 @@ import os
 import sqlite3
 import subprocess
 
+import numpy as np
+
 
 def organise_data(root):
     """
@@ -101,16 +103,68 @@ def load_annotation_data(saa_file_path):
             else:
                 coords_y += [int(coord)]
 
-        annotation['instances'][row[1]]['key_boxes'][row[0]] = [min(coords_x), min(coords_y),
-                                                                max(coords_x), max(coords_y)]
+        # what key frame is this
+        if row[5] != '1':
+            lrm = 1   # final key frame
+        elif row[6] != '1':
+            lrm = -1  # start key frame
+        else:
+            lrm = 0
+        # for some reason all the key frames are 12 frames off...?
+        annotation['instances'][row[1]]['key_boxes'][row[0]-12] = [min(coords_x), min(coords_y),
+                                                                   max(coords_x), max(coords_y),
+                                                                   lrm]
 
     return annotation
+
+
+def interpolate_annotation(annotation):
+
+    for k, instance in annotation['instances'].items():  # for each instances
+        frames = list(instance['key_boxes'].keys())
+        frames.sort()
+
+        for i in range(len(frames)-1):
+            start_box = instance['key_boxes'][frames[i]]
+            end_box = instance['key_boxes'][frames[i+1]]
+
+            # if the flags are right we want to interp between these two frames
+            if start_box[4] != 1 and end_box[4] != -1:
+                boxes = interpolate_boxes(frames[i], frames[i+1], start_box[:4], end_box[:4])
+
+                for f, box in boxes.items():
+                    instance['key_boxes'][f] = box
+
+            if start_box[4] == 1:
+                instance['key_boxes'][frames[i]] = start_box[:4]
+            elif i == len(frames) - 2:
+                instance['key_boxes'][frames[i+1]] = end_box[:4]
+
+    return annotation
+
+
+def interpolate_boxes(start_frame, end_frame, start_box, end_box):
+    frames = list(range(start_frame, end_frame))
+    boxes = {}
+    for i in range(len(frames)):
+        perc = float(i)/float(len(frames))
+
+        x_min = start_box[0] + int(np.round(perc*(end_box[0]-start_box[0])))
+        y_min = start_box[1] + int(np.round(perc*(end_box[1]-start_box[1])))
+        x_max = start_box[2] + int(np.round(perc*(end_box[2]-start_box[2])))
+        y_max = start_box[3] + int(np.round(perc*(end_box[3]-start_box[3])))
+        boxes[frames[i]] = [x_min, y_min, x_max, y_max]
+
+    return boxes
 
 
 if __name__ == '__main__':
 
     # organise_data('/media/hayden/CASR_ACVT/')
 
-    for file in os.listdir('/media/hayden/CASR_ACVT/annotations'):
-        annotation = load_annotation_data(os.path.join('/media/hayden/CASR_ACVT/annotations', file))
+    # for file in os.listdir('/media/hayden/CASR_ACVT/annotations'):
+    #     annotation = load_annotation_data(os.path.join('/media/hayden/CASR_ACVT/annotations', file))
+
+    annotation = load_annotation_data('/media/hayden/CASR_ACVT/annotations/002.saa')
+    interpolate_annotation(annotation)
     print('')
