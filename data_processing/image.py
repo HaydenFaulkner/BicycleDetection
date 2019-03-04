@@ -62,7 +62,7 @@ def extract_frames(video_path, get_frames=-1, save_path=None):
     :param get_frames: list(int), the frames of the video we want to get, default -1 which is all
     :param save_path: str, the path to save the frames as images, default is None which doesn't save images
 
-    :return: frames: np.array, the images of the video (f, w, h, c)
+    :return: frames: np.array, the images of the video (f, h, w, c) [0, 255]
     """
 
     # Check the video exists
@@ -102,7 +102,7 @@ def extract_frames(video_path, get_frames=-1, save_path=None):
             break
 
         if current in get_frames:
-            frames.append(frame)
+            frames.append(cv2.cvtColor(frame,cv2.COLOR_BGR2RGB))
             got_frames.append(current)
 
             # save frame to file
@@ -112,13 +112,13 @@ def extract_frames(video_path, get_frames=-1, save_path=None):
         current += 1
 
     # ensure we got all the frames we wanted, if not...
-    if len(set(get_frames).difference(got_frames)) != 0:
+    if len(set(get_frames).difference(set(got_frames))) != 0:
         print("Was unable to do frames : ")
-        print(list(set(get_frames).difference(got_frames)))
+        print(list(set(get_frames).difference(set(got_frames))))
 
         # delete the save_path dir if we made it
         if save_path and os.path.exists(save_path):
             shutil.rmtree(save_path)
-        return None
+        # return None
 
     return np.array(frames)
