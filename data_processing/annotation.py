@@ -137,7 +137,7 @@ def interpolate_annotation(annotation):
 
             if start_box[4] == 1:
                 instance['key_boxes'][frames[i]] = start_box[:4]
-            elif i == len(frames) - 2:
+            if i == len(frames) - 2:
                 instance['key_boxes'][frames[i+1]] = end_box[:4]
 
     return annotation
@@ -165,6 +165,6 @@ if __name__ == '__main__':
     # for file in os.listdir('/media/hayden/CASR_ACVT/annotations'):
     #     annotation = load_annotation_data(os.path.join('/media/hayden/CASR_ACVT/annotations', file))
 
-    annotation = load_annotation_data('/media/hayden/CASR_ACVT/annotations/002.saa')
+    annotation = load_annotation_data('/media/hayden/CASR_ACVT/annotations/R021.saa')
     interpolate_annotation(annotation)
     print('')
