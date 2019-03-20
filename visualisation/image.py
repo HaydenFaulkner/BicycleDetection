@@ -7,12 +7,11 @@ from data_processing.image import extract_frames
 from data_processing.annotation import load_annotation_data, interpolate_annotation
 
 
-def pil_plot_bbox(out_path, img, bboxes, scores=None, labels=None, thresh=0.5, class_names=None, colors=None, absolute_coordinates=True):
+def pil_plot_bbox(out_path, img, bboxes,
+                  scores=None, labels=None, thresh=0.5, class_names=None, colors=None, absolute_coordinates=True):
     """
     plot bounding boxes on an image and
     """
-
-
     if isinstance(img, str):
         img = Image.open(img).convert('RGBA')
     else:
