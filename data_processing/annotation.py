@@ -166,5 +166,5 @@ if __name__ == '__main__':
     #     annotation = load_annotation_data(os.path.join('/media/hayden/CASR_ACVT/annotations', file))
 
     annotation = load_annotation_data('/media/hayden/CASR_ACVT/annotations/R021.saa')
-    interpolate_annotation(annotation)
+    annotation = interpolate_annotation(annotation)
     print('')
