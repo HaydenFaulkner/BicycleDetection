@@ -110,10 +110,13 @@ def load_annotation_data(saa_file_path):
             lrm = -1  # start key frame
         else:
             lrm = 0
-        # for some reason all the key frames are 12 frames off...?
-        annotation['instances'][row[1]]['key_boxes'][row[0]-12] = [min(coords_x), min(coords_y),
-                                                                   max(coords_x), max(coords_y),
-                                                                   lrm]
+        # for some reason all the key frames are 12 frames off...fix in display!?! causes errors
+        # annotation['instances'][row[1]]['key_boxes'][row[0]-12] = [min(coords_x), min(coords_y),
+        #                                                            max(coords_x), max(coords_y),
+        #                                                            lrm]
+        annotation['instances'][row[1]]['key_boxes'][row[0]] = [min(coords_x), min(coords_y),
+                                                                max(coords_x), max(coords_y),
+                                                                lrm]
 
     return annotation
 
@@ -135,7 +138,7 @@ def interpolate_annotation(annotation):
                 for f, box in boxes.items():
                     instance['key_boxes'][f] = box
 
-            if start_box[4] == 1:
+            if start_box[4] == 1 or start_box[4] == -1:
                 instance['key_boxes'][frames[i]] = start_box[:4]
             if i == len(frames) - 2:
                 instance['key_boxes'][frames[i+1]] = end_box[:4]

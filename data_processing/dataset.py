@@ -17,7 +17,7 @@ class CycleDataset(object):
         Path to folder storing the dataset.
     """
 
-    def __init__(self, root, categories=['cyclist'], split=None, sample_type='frames', allow_empty=False, shuffle='clips'):
+    def __init__(self, root, categories=['cyclist'], split_id=None, sample_type='frames', allow_empty=False, shuffle='clips'):
         
         assert sample_type in ['clips', 'frames']
         assert shuffle in [None, 'clips', 'frames']  # No shuffling, shuffle clips (clips exclusive to split), shuffle frames
@@ -43,7 +43,8 @@ class CycleDataset(object):
         # a mapping from sample ids to clips and frames [0] -> (clip_id) or (clip_id, frame_id/num)
         self._sample_ids, self._sample_ids_map = self._load_sample_ids()
 
-        self.training_ids, self.validation_ids, self.test_ids = self.determine_splits()
+        # if split_id not None then this will modify self._sample_ids, self._sample_ids_map
+        self.training_ids, self.validation_ids, self.test_ids = self.determine_splits(split_id=split_id)
 
     # def __str__(self):
     #     detail = ','.join([str(s) for s in self.splits])
@@ -109,6 +110,9 @@ class CycleDataset(object):
                 for instance_id, instance in clip['instances'].items():
                     for frame_id, box in instance['key_boxes'].items():
                         if frame_id not in frames:
+                            if frame_id < 0:
+                                print(instance)
+                                continue
                             frames.add(frame_id)
                             sample_id = len(sample_ids)
                             sample_ids.append(sample_id)
@@ -124,7 +128,7 @@ class CycleDataset(object):
 
         for category in _categories:
             category_id = len(categories)
-            categories.append(category)
+            categories.append(category_id)
             category_to_names[category_id] = category
             names_to_category[category] = category_id
 
@@ -144,8 +148,8 @@ class CycleDataset(object):
 
         if self._sample_type == 'clips' or frame_id < 0:
             boxes = {}
-            for instance_id, instance in clip['instances']:
-                for frame_n, box in instance['key_boxes']:
+            for instance_id, instance in clip['instances'].items():
+                for frame_n, box in instance['key_boxes'].items():
                     if frame_n in boxes.keys():
                         boxes[frame_n].append(box)
                     else:
@@ -175,12 +179,13 @@ class CycleDataset(object):
     def get_category_name_from_id(self, cid):
         return self.category_to_names[cid]
 
-    def statistics(self):
-        return ""
-
-    def determine_splits(self, ratios=[.8, .1, .1], exclusive_clips=True):
+    def determine_splits(self, split_id=None, ratios=[.8, .1, .1], exclusive_clips=True):
         # decided to make a class method since need to know about categories etc..
         assert sum(ratios) == 1
+
+        # Load premade splits from files, instead of making them
+        if split_id and os.path.exists(os.path.join(self._root, 'splits', split_id+"_train.txt")):
+            return self.load_splits(split_id)
 
         # we don't have sample_ids here, so use (clip_id, frame_id)
         n_samples = len(self._sample_ids)
@@ -220,10 +225,93 @@ class CycleDataset(object):
 
         return train_ids, val_ids, test_ids
 
+    def save_splits(self, split_id):
+        os.makedirs(os.path.join(self._root, 'splits'), exist_ok=True)
+        with open(os.path.join(self._root, 'splits', split_id+"_train.txt"), 'w') as f:
+            for sample_id in self.training_ids:
+                f.write("%d\t%s\t%s\n" % (sample_id, self._sample_ids_map[sample_id][0], self._sample_ids_map[sample_id][1]))
+        with open(os.path.join(self._root, 'splits', split_id+"_val.txt"), 'w') as f:
+            for sample_id in self.validation_ids:
+                f.write("%d\t%s\t%s\n" % (sample_id, self._sample_ids_map[sample_id][0], self._sample_ids_map[sample_id][1]))
+        with open(os.path.join(self._root, 'splits', split_id+"_test.txt"), 'w') as f:
+            for sample_id in self.test_ids:
+                f.write("%d\t%s\t%s\n" % (sample_id, self._sample_ids_map[sample_id][0], self._sample_ids_map[sample_id][1]))
+
+    def load_splits(self, split_id):
+        self._sample_ids = []
+        self._sample_ids_map = {}
+
+        # Training ids
+        train_ids = []
+        with open(os.path.join(self._root, 'splits', split_id+"_train.txt"), 'r') as f:
+            lines = [line.rstrip().split('\t') for line in f.readlines()]
+        for line in lines:
+            train_ids.append(int(line[0]))
+            self._sample_ids.append(int(line[0]))
+            self._sample_ids_map[int(line[0])] = (line[1], line[2])
+
+        # Validation ids
+        val_ids = []
+        with open(os.path.join(self._root, 'splits', split_id+"_train.txt"), 'r') as f:
+            lines = [line.rstrip().split('\t') for line in f.readlines()]
+        for line in lines:
+            train_ids.append(int(line[0]))
+            self._sample_ids.append(int(line[0]))
+            self._sample_ids_map[int(line[0])] = (line[1], line[2])
+
+        # Testing ids
+        test_ids = []
+        with open(os.path.join(self._root, 'splits', split_id+"_train.txt"), 'r') as f:
+            lines = [line.rstrip().split('\t') for line in f.readlines()]
+        for line in lines:
+            train_ids.append(int(line[0]))
+            self._sample_ids.append(int(line[0]))
+            self._sample_ids_map[int(line[0])] = (line[1], line[2])
+
+        return train_ids, val_ids, test_ids
+
+    def statistics(self):
+        boxes_p_cls, boxes_p_img, samples_p_cls = self._category_counts()
+
+        out_str = "# Images: %d\n" \
+                  "# Boxes: %d\n" \
+                  "# Categories: %d\n" \
+                  "Boxes per image (min, avg, max): %d, %d, %d\n" \
+                  "Boxes per category (min, avg, max): %d, %d, %d\n\n\n" % \
+                  (len(self._sample_ids), sum(boxes_p_img), len(boxes_p_cls),
+                   min(boxes_p_img), sum(boxes_p_img) / len(boxes_p_img), max(boxes_p_img),
+                   min(boxes_p_cls), sum(boxes_p_cls) / len(boxes_p_cls), max(boxes_p_cls))
+
+        return out_str
+
+    def _category_counts(self):
+        # calculate the number of samples per category, and per image
+        boxes_p_cls = [0] * self.num_categories
+        samples_p_cls = [0] * self.num_categories
+        boxes_p_img = []
+        for sample_id in self._sample_ids:
+            boxes_this_img = 0
+            boxes = self.get_boxes(sample_id)
+            samples_p_cls_flag = [0] * self.num_categories
+            for label in boxes:
+                try:
+                    boxes_p_cls[self._categories.index(int(label[4]))] += 1
+                except ValueError:
+                    print()
+                boxes_this_img += 1
+                if samples_p_cls_flag[self._categories.index(int(label[4]))] == 0:
+                    samples_p_cls_flag[self._categories.index(int(label[4]))] = 1
+                    samples_p_cls[self._categories.index(int(label[4]))] += 1
+
+            boxes_p_img.append(boxes_this_img)
+
+        return boxes_p_cls, boxes_p_img, samples_p_cls
+
 if __name__ == '__main__':
     root = '/media/hayden/CASR_ACVT/'
 
     dataset = CycleDataset(root=root)
+    # dataset.save_splits('testing')
     boxes = dataset.get_boxes(0)
 
-    print()
+    print(dataset.statistics())
