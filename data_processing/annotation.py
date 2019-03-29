@@ -9,40 +9,45 @@ import subprocess
 import numpy as np
 
 
-def organise_data(root):
+def organise_data():
     """
-    gets all annotation files and video files from root and puts them in root/annotations and root/videos respectively
-    it also removes any which don't match
+    gets all annotation files and video files from root/unfiltered and puts them in root/filtered/annotations and
+    root/filtered/videos respectively, it also removes any which don't match
 
     :param root: str, the root path
     :return: int_list, the list of common files that we keep
     """
+    # Get the root of the project, and then the data dir
+    root = os.path.dirname(os.path.abspath(__file__))
+    root = root[:root.rfind('BicycleDetection')+len('BicycleDetection')+1]
+    root = os.path.join(root, 'data')
+    root = '/media/hayden/CASR_ACVT/' ##################################################### TODO REMOVE BEFORE HANDOVER
     print("Find and copy all the annotation files")
-    os.makedirs(os.path.join(root, 'annotations'))
-    cmd = "find " + root + ". -name \*.saa -exec cp -v {} " + root + "annotations/ \;"
+    os.makedirs(os.path.join(root, 'filtered', 'annotations'))
+    cmd = "find " + root + "/unfiltered/. -name \*.saa -exec cp -v {} " + root + "/filtered/annotations/ \;"
     process = subprocess.call(cmd, shell=True)
 
     print("Find and copy all the video files")
-    os.makedirs(os.path.join(root, 'videos'))
-    cmd = "find " + root + ". -name \*.mp4 -exec cp -v {} " + root + "videos/ \;"
+    os.makedirs(os.path.join(root, 'filtered', 'videos'))
+    cmd = "find " + root + "/unfiltered/. -name \*.mp4 -exec cp -v {} " + root + "/filtered/videos/ \;"
     process = subprocess.call(cmd, shell=True)
 
     print("Removing files that don't have corresponding annotations or videos")
-    ann_list = os.listdir(os.path.join(root, 'annotations'))
+    ann_list = os.listdir(os.path.join(root, 'filtered', 'annotations'))
     ann_list = [ann[:-4] for ann in ann_list]
-    vid_list = os.listdir(os.path.join(root, 'videos'))
+    vid_list = os.listdir(os.path.join(root, 'filtered', 'videos'))
     vid_list = [vid[:-4] for vid in vid_list]
     int_list = [value for value in ann_list if value in vid_list]
 
     for vid_file in vid_list:
         if vid_file not in int_list:
-            os.remove(os.path.join(root, 'videos', vid_file + '.mp4'))
-            print('Removing: ' + os.path.join(root, 'videos', vid_file + '.mp4'))
+            os.remove(os.path.join(root, 'filtered', 'videos', vid_file + '.mp4'))
+            print('Removing: ' + os.path.join(root, 'filtered', 'videos', vid_file + '.mp4'))
 
     for ann_file in ann_list:
         if ann_file not in int_list:
-            os.remove(os.path.join(root, 'annotations', ann_file + '.saa'))
-            print('Removing: ' + os.path.join(root, 'annotations', ann_file + '.saa'))
+            os.remove(os.path.join(root, 'filtered', 'annotations', ann_file + '.saa'))
+            print('Removing: ' + os.path.join(root, 'filtered', 'annotations', ann_file + '.saa'))
 
     return int_list
 
@@ -163,11 +168,11 @@ def interpolate_boxes(start_frame, end_frame, start_box, end_box):
 
 if __name__ == '__main__':
 
-    # organise_data('/media/hayden/CASR_ACVT/')
+    organise_data()
 
     # for file in os.listdir('/media/hayden/CASR_ACVT/annotations'):
     #     annotation = load_annotation_data(os.path.join('/media/hayden/CASR_ACVT/annotations', file))
 
-    annotation = load_annotation_data('/media/hayden/CASR_ACVT/annotations/R021.saa')
-    annotation = interpolate_annotation(annotation)
-    print('')
+    # annotation = load_annotation_data('/media/hayden/CASR_ACVT/annotations/R021.saa')
+    # annotation = interpolate_annotation(annotation)
+    # print('')
