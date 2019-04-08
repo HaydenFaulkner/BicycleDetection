@@ -1,5 +1,7 @@
-"""Train SSD"""
-import argparse
+"""
+Train script for mxnet object detection pipeline
+"""
+
 import os
 import logging
 import warnings
@@ -12,9 +14,8 @@ import gluoncv as gcv
 from gluoncv import utils as gutils
 from gluoncv.model_zoo import get_model
 
-from data_loading import get_dataset, get_dataloader
-from eval_utils import validate
-from test_ssd import evalutate as test
+from config.functions import load_config
+from data_processing.loading import load_datasets
 
 CWD = os.getcwd()
 
@@ -30,35 +31,58 @@ def save_params(net, best_map, current_map, epoch, save_interval, prefix):
         net.save_params('{:s}{:04d}_{:.4f}.params'.format(prefix, epoch, current_map))
 
 
-def train(net, train_data, val_data, eval_metric, ctx, args):
+def val_loop(net, val_data, ctx, eval_metric):
+    """Test on validation dataset."""
+    eval_metric.reset()
+    # set nms threshold and topk constraint
+    net.set_nms(nms_thresh=0.45, nms_topk=400)
+    net.hybridize()
+    for batch in val_data:
+        data = gluon.utils.split_and_load(batch[0], ctx_list=ctx, batch_axis=0, even_split=False)
+        label = gluon.utils.split_and_load(batch[1], ctx_list=ctx, batch_axis=0, even_split=False)
+        det_bboxes = []
+        det_ids = []
+        det_scores = []
+        gt_bboxes = []
+        gt_ids = []
+        gt_difficults = []
+        for x, y in zip(data, label):
+            # get prediction results
+            ids, scores, bboxes = net(x)
+            det_ids.append(ids)
+            det_scores.append(scores)
+            # clip to image size
+            det_bboxes.append(bboxes.clip(0, batch[0].shape[2]))
+            # split ground truths
+            gt_ids.append(y.slice_axis(axis=-1, begin=4, end=5))
+            gt_bboxes.append(y.slice_axis(axis=-1, begin=0, end=4))
+            gt_difficults.append(y.slice_axis(axis=-1, begin=5, end=6) if y.shape[-1] > 5 else [None])  # put None in list to prevent cat error in voc_detection.py
+
+        # update metric
+        eval_metric.update(det_bboxes, det_ids, det_scores, gt_bboxes, gt_ids, gt_difficults)
+    return eval_metric.get()
+
+
+def train_loop(net, train_data, val_data, eval_metric, ctx, logger, start_epoch, cfg):
     """Training pipeline"""
     net.collect_params().reset_ctx(ctx)
     trainer = gluon.Trainer(
         net.collect_params(), 'sgd',
-        {'learning_rate': args.lr, 'wd': args.wd, 'momentum': args.momentum})
+        {'learning_rate': cfg.train.learning_rate, 'wd': cfg.train.weight_decay, 'momentum': cfg.train.momentum})
 
     # lr decay policy
-    lr_decay = float(args.lr_decay)
-    lr_steps = sorted([float(ls) for ls in args.lr_decay_epoch.split(',') if ls.strip()])
+    lr_decay = float(cfg.train.lr_decay)
+    lr_steps = sorted([float(ls) for ls in cfg.train.lr_decay_epochs if ls.strip()])
 
+    # setup losses
     mbox_loss = gcv.loss.SSDMultiBoxLoss()
     ce_metric = mx.metric.Loss('CrossEntropy')
     smoothl1_metric = mx.metric.Loss('SmoothL1')
 
-    # set up logger
-    logging.basicConfig()
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    log_file_path = args.save_prefix + 'train.log'
-    log_dir = os.path.dirname(log_file_path)
-    if log_dir and not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-    fh = logging.FileHandler(log_file_path)
-    logger.addHandler(fh)
-    logger.info(args)
-    logger.info('Start training from [Epoch {}]'.format(args.start_epoch))
+    # start the training loop
+    logger.info('Start training from [Epoch {}]'.format(start_epoch))
     best_map = [0]
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(start_epoch, cfg.train.epochs):
         while lr_steps and epoch >= lr_steps[0]:
             new_lr = trainer.learning_rate * lr_decay
             lr_steps.pop(0)
@@ -89,7 +113,7 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
             trainer.step(1)
             ce_metric.update(0, [l * batch_size for l in cls_loss])
             smoothl1_metric.update(0, [l * batch_size for l in box_loss])
-            if args.log_interval and not (i + 1) % args.log_interval:
+            if cfg.log_interval and not (i + 1) % cfg.log_interval:
                 name1, loss1 = ce_metric.get()
                 name2, loss2 = smoothl1_metric.get()
                 logger.info('[Epoch {}][Batch {}], Speed: {:.3f} samples/sec, {}={:.3f}, {}={:.3f}'.format(
@@ -100,69 +124,88 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
         name2, loss2 = smoothl1_metric.get()
         logger.info('[Epoch {}] Training cost: {:.3f}, {}={:.3f}, {}={:.3f}'.format(
             epoch, (time.time()-tic), name1, loss1, name2, loss2))
-        if (epoch % args.val_interval == 0) or (args.save_interval and epoch % args.save_interval == 0):
+        if (epoch % cfg.train.val_every == 0) or (cfg.train.checkpoint_every and epoch % cfg.train.checkpoint_every == 0):
             # consider reduce the frequency of validation to save time
-            map_name, mean_ap = validate(net, val_data, ctx, eval_metric)
+            map_name, mean_ap = val_loop(net, val_data, ctx, eval_metric)
             val_msg = '\n'.join(['{}={}'.format(k, v) for k, v in zip(map_name, mean_ap)])
             logger.info('[Epoch {}] Validation: \n{}'.format(epoch, val_msg))
             current_map = float(mean_ap[-1])
         else:
             current_map = 0.
-        save_params(net, best_map, current_map, epoch, args.save_interval, args.save_prefix)
+        save_params(net, best_map, current_map, epoch, cfg.checkpoint_every, '')
 
     return logger
 
-if __name__ == '__main__':
 
-    args = parse_args()
-    save_pre = args.save_prefix
-    for pre in ['custom']:#['voc', 'coco']:
-        args.pre_dataset = pre
-        for model_name in ['mobilenet1.0', 'resnet50_v1', 'resnet101_v2']:
-            args.network = model_name
-            mean_aps = []
-            for i in range(10):
-                args.dataset = "set_%03d" % i
-                # fix seed for mxnet, numpy and python builtin random generator.
-                gutils.random.seed(args.seed)
+def train(cfg_path):
 
-                # training contexts
-                ctx = [mx.gpu(int(i)) for i in args.gpus.split(',') if i.strip()]
-                ctx = ctx if ctx else [mx.cpu()]
+    # load the config file
+    cfg = load_config(cfg_path)
 
-                # setup network
-                net_name = '_'.join(('ssd', str(args.data_shape), args.network, args.pre_dataset))
-                args.save_prefix = save_pre + '/' + net_name + '_' + args.dataset + '/'
-                os.makedirs(args.save_prefix, exist_ok=True)
+    # set the random seed
+    gutils.random.seed(cfg.seed)
 
-                # should just be able to use:
-                # net = get_model(net_name, classes=['stumps'], pretrained_base=True, transfer='voc')
-                # but there is bug on in gluoncv ssd.py (line 809) where it's:
-                # net = get_model('ssd_512_mobilenet1_0_' + str(transfer), pretrained=True, **kwargs)
-                # rather than:
-                # net = get_model('ssd_512_mobilenet1.0_' + str(transfer), pretrained=True, **kwargs)
-                #
-                # So we have to do it out own way for finetuning
-                if args.pre_dataset == 'custom':
-                    net = get_model(net_name, pretrained_base=True, classes=['stumps'])  # just finetuning
-                else:
-                    net = get_model(net_name, pretrained=True)  # just finetuning
-                    # reset network to predict stumps
-                    net.reset_class(['stumps'])
+    # training contexts ie. gpu or cpu
+    ctx = [mx.gpu(int(i)) for i in cfg.gpus.split(',') if i.strip()]
+    ctx = ctx if ctx else [mx.cpu()]
 
-                # do we want to resume?
-                if args.resume.strip():
-                    net.load_parameters(args.resume.strip())
-                else:
-                    with warnings.catch_warnings(record=True) as w:
-                        warnings.simplefilter("always")
-                        net.initialize()
+    # setup network
+    net_name = '_'.join((cfg.run_id, cfg.model.type, cfg.dataset.name))
+    model_path = os.path.join(cfg.model.root_dir, net_name)
+    os.makedirs(model_path, exist_ok=True)
 
-                # load the data
-                train_dataset, val_dataset, test_dataset, eval_metric = get_dataset(args.dataset, CWD)
-                train_data, val_data, test_data = get_dataloader(net, train_dataset, val_dataset, test_dataset, args.data_shape, args.batch_size, args.num_workers)
+    # should just be able to use:
+    # net = get_model(net_name, classes=['stumps'], pretrained_base=True, transfer='voc')
+    # but there is bug on in gluoncv ssd.py (line 809) where it's:
+    # net = get_model('ssd_512_mobilenet1_0_' + str(transfer), pretrained=True, **kwargs)
+    # rather than:
+    # net = get_model('ssd_512_mobilenet1.0_' + str(transfer), pretrained=True, **kwargs)
+    #
+    # So we have to do it our own way for finetuning
+    if cfg.dataset.name == 'custom':
+        net = get_model(net_name, pretrained_base=True, classes=cfg.classes)  # just finetuning
+    else:
+        net = get_model(net_name, pretrained=True)  # just finetuning
+        # reset network to predict stumps
+        net.reset_class(cfg.classes)
 
-                # training
-                print("TRAINING")
-                if args.epochs > 0:
-                    logger = train(net, train_data, val_data, eval_metric, ctx, args)
+    # do we want to resume?
+    load_model_file = None
+    start_epoch = 0
+    if cfg.resume == -1:
+        file_list = os.listdir(model_path)
+        # todo sort and filter
+        # todo take latest
+        # todo form name
+        if False:
+            net.load_parameters(os.path.join(model_path, cfg.resume))
+            start_epoch = 0
+    elif cfg.resume:
+        load_model_file = cfg.resume
+
+    if load_model_file:
+        net.load_parameters(os.path.join(model_path, load_model_file))
+    else:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            net.initialize()
+
+    # load the data
+    train_dataset, val_dataset, test_dataset = load_datasets(cfg.data.root_dir, cfg.data.split_id)
+
+    train_data, val_data, test_data = get_dataloader(net, train_dataset, val_dataset, test_dataset, cfg.data.shape, cfg.train.batch_size, cfg.num_workers)
+
+    eval_metric = VOCMApMetric(iou_thresh=0.5, class_names=('bicycle',))
+
+    # set up logger
+    logging.basicConfig()
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    fh = logging.FileHandler(os.path.join(model_path, 'train.log'))
+    logger.addHandler(fh)
+    logger.info(cfg)
+
+    # training
+    print("TRAINING")
+    if cfg.train.epochs-start_epoch > 0:
+        train_loop(net, train_data, val_data, eval_metric, ctx, logger, start_epoch, cfg)

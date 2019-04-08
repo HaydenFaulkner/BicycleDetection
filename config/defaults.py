@@ -29,17 +29,20 @@ def get_default():
     config.model.backbone.n_layers = 50
 
     # Dataset Defaults
-    config.dataset = EasyDict()
-    config.dataset.root_dir = 'data'
-    config.dataset.name = 'voc'
-    config.dataset.id = None
+    config.data = EasyDict()
+    config.data.root_dir = 'data'
+    config.data.name = 'cycle'
+    config.data.split_id = None
 
-    config.dataset.mixup = False
-    config.dataset.no_mixup_epochs = 20
+    config.data.shape = 512
+
+    config.data.mixup = False
+    config.data.no_mixup_epochs = 20
 
     # Train Defaults
     config.train = EasyDict()
 
+    config.train.batch_size = 1
     config.train.checkpoint_every = 1  # epochs, 0 is never
 
     config.train.epochs = None  # voc 20, coco 26
@@ -54,9 +57,7 @@ def get_default():
 
     config.train.resume = -1  # resume? if -1 then auto search dir for latest checkpoint, otherwise specify of None
 
-    # Validation Defaults
-    config.val = EasyDict()
-    config.val.every = 1  # epochs, 0 is never
+    config.train.val_every = 1  # epochs, 0 is never
 
     # Visualisation Defaults
     config.vis = EasyDict()

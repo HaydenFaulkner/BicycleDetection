@@ -17,6 +17,219 @@ class CycleDataset(object):
         Path to folder storing the dataset.
     """
 
+    def __init__(self, root, split_id, split, categories=['cyclist'], sample_type='frames'):
+
+        assert sample_type in ['clips', 'frames']
+
+        super(CycleDataset, self).__init__()
+        self._root = os.path.expanduser(root)
+        self._sample_type = sample_type
+
+        # list of the splits to do
+        self._split_id = split_id
+        self._split = split
+
+        # a tuple with category ids
+        # a dictionary keyed with category ids to names
+        # a dictionary keyed with category names to ids
+        self._categories, self._category_to_names, self._names_to_category = self._load_categories(categories)
+
+        self._data = self._load_data()  # a dictionary containing all the necessary data, keyed on clips with sub dicts keyed on frames
+
+        # samples keyed by their id
+        self._samples = self._load_samples()
+
+
+    # def __str__(self):
+    #     detail = ','.join([str(s) for s in self.splits])
+    #     return self.__class__.__name__ + '(' + detail + ')'
+
+    @property
+    def num_categories(self):
+        """Number of categories."""
+        return len(self._categories)
+
+    def __len__(self):
+        return len(self._data)
+
+    def __getitem__(self, idx):
+        return NotImplementedError
+
+    def _load_data(self):
+        data = {}
+        for file in os.listdir(os.path.join(self._root, 'annotations')):
+
+            annotation = load_annotation_data(os.path.join(self._root, 'annotations', file))
+            # interpolate the frames
+            annotation = interpolate_annotation(annotation)
+
+            annotation['video_path'] = os.path.join(self._root, 'videos', file[:-4] + '.mp4')
+
+            # Make sure it's a category we want
+            d_keys = set(annotation['instances'].keys())
+            for instance_id, instance in annotation['instances'].items():
+                for category in self._names_to_category.keys():
+                    if category in instance['name']:
+                        d_keys.remove(instance_id)
+                        for kb in instance['key_boxes'].values():
+                            kb.append(self._names_to_category[category])  # add category labels
+
+            for d_key in d_keys:
+                del annotation['instances'][d_key]
+
+            # assign to the data dictionary
+            data[file] = annotation
+
+        return data
+
+    def _load_samples(self):
+        samples = {}
+        with open(os.path.join(self._root, 'splits', self._split_id + "_"+self._split+".txt"), 'r') as f:
+            lines = [line.rstrip().split('\t') for line in f.readlines()]
+        for line in lines:
+            samples[int(line[0])] = (line[1], line[2])
+
+        return samples
+
+    @staticmethod
+    def _load_categories(_categories):
+        categories = []
+        category_to_names = {}
+        names_to_category = {}
+
+        for category in _categories:
+            category_id = len(categories)
+            categories.append(category_id)
+            category_to_names[category_id] = category
+            names_to_category[category] = category_id
+
+        return categories, category_to_names, names_to_category
+
+    def get_set_boxes(self):
+        boxes = {}
+        for sample_id in self.ids:
+            boxes[sample_id] = self.get_boxes(sample_id)
+        return boxes
+
+    def get_boxes(self, sample_id):
+        # todo how to handle for clip sample types, ie no frames, return dict or list of lists?
+        # todo keep instance data?
+        clip_id, frame_id = self._sample_ids_map[sample_id]
+        clip = self._data[clip_id]
+
+        if self._sample_type == 'clips' or frame_id < 0:
+            boxes = {}
+            for instance_id, instance in clip['instances'].items():
+                for frame_n, box in instance['key_boxes'].items():
+                    if frame_n in boxes.keys():
+                        boxes[frame_n].append(box)
+                    else:
+                        boxes[frame_n] = [box]
+        else:
+            boxes = []
+            for instance_id, instance in clip['instances'].items():
+                if frame_id in instance['key_boxes'].keys():
+                    boxes.append(instance['key_boxes'][frame_id])
+        return boxes
+
+    def get_set_captions(self):
+        captions = {}
+        for sample_id in self.ids:
+            captions[sample_id] = self.get_captions(sample_id)
+        return captions
+
+    def get_category_index_from_name(self, name):
+        return self.categories.index(self.names_to_category[name])
+
+    def get_category_id_from_name(self, cid):
+        return self.category_to_names[cid]
+
+    def get_category_name_from_index(self, index):
+        return self.category_to_names[self.categories[index]]
+
+    def get_category_name_from_id(self, cid):
+        return self.category_to_names[cid]
+
+
+    def load_splits(self, split_id):
+        self._sample_ids = []
+        self._sample_ids_map = {}
+
+        # Training ids
+        train_ids = []
+        with open(os.path.join(self._root, 'splits', split_id + "_train.txt"), 'r') as f:
+            lines = [line.rstrip().split('\t') for line in f.readlines()]
+        for line in lines:
+            train_ids.append(int(line[0]))
+            self._sample_ids.append(int(line[0]))
+            self._sample_ids_map[int(line[0])] = (line[1], line[2])
+
+        # Validation ids
+        val_ids = []
+        with open(os.path.join(self._root, 'splits', split_id + "_train.txt"), 'r') as f:
+            lines = [line.rstrip().split('\t') for line in f.readlines()]
+        for line in lines:
+            train_ids.append(int(line[0]))
+            self._sample_ids.append(int(line[0]))
+            self._sample_ids_map[int(line[0])] = (line[1], line[2])
+
+        # Testing ids
+        test_ids = []
+        with open(os.path.join(self._root, 'splits', split_id + "_train.txt"), 'r') as f:
+            lines = [line.rstrip().split('\t') for line in f.readlines()]
+        for line in lines:
+            train_ids.append(int(line[0]))
+            self._sample_ids.append(int(line[0]))
+            self._sample_ids_map[int(line[0])] = (line[1], line[2])
+
+        return train_ids, val_ids, test_ids
+
+    def statistics(self):
+        boxes_p_cls, boxes_p_img, samples_p_cls = self._category_counts()
+
+        out_str = "# Images: %d\n" \
+                  "# Boxes: %d\n" \
+                  "# Categories: %d\n" \
+                  "Boxes per image (min, avg, max): %d, %d, %d\n" \
+                  "Boxes per category (min, avg, max): %d, %d, %d\n\n\n" % \
+                  (len(self._sample_ids), sum(boxes_p_img), len(boxes_p_cls),
+                   min(boxes_p_img), sum(boxes_p_img) / len(boxes_p_img), max(boxes_p_img),
+                   min(boxes_p_cls), sum(boxes_p_cls) / len(boxes_p_cls), max(boxes_p_cls))
+
+        return out_str
+
+    def _category_counts(self):
+        # calculate the number of samples per category, and per image
+        boxes_p_cls = [0] * self.num_categories
+        samples_p_cls = [0] * self.num_categories
+        boxes_p_img = []
+        for sample_id in self._sample_ids:
+            boxes_this_img = 0
+            boxes = self.get_boxes(sample_id)
+            samples_p_cls_flag = [0] * self.num_categories
+            for label in boxes:
+                try:
+                    boxes_p_cls[self._categories.index(int(label[4]))] += 1
+                except ValueError:
+                    print()
+                boxes_this_img += 1
+                if samples_p_cls_flag[self._categories.index(int(label[4]))] == 0:
+                    samples_p_cls_flag[self._categories.index(int(label[4]))] = 1
+                    samples_p_cls[self._categories.index(int(label[4]))] += 1
+
+            boxes_p_img.append(boxes_this_img)
+
+        return boxes_p_cls, boxes_p_img, samples_p_cls
+
+
+class CycleDatasetAll(object):
+    """BiCycle dataset.
+    Parameters
+    ----------
+    root : str
+        Path to folder storing the dataset.
+    """
+
     def __init__(self, root, categories=['cyclist'], split_id=None, sample_type='frames', allow_empty=False, shuffle='clips'):
         
         assert sample_type in ['clips', 'frames']
@@ -307,8 +520,9 @@ class CycleDataset(object):
 
         return boxes_p_cls, boxes_p_img, samples_p_cls
 
+
 if __name__ == '__main__':
-    root = '/media/hayden/CASR_ACVT/'
+    root = os.getcwd()[:-11] + '/filtered'  # messy but should do if all named correctly
 
     dataset = CycleDataset(root=root)
     # dataset.save_splits('testing')
