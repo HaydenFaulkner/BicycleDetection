@@ -3,10 +3,45 @@ A CycleDataset to load, store and access the data for training and testing
 
 """
 
+import numpy as np
 import os
 import random
 
+from mxnet import image
+
 from data_processing.annotation import load_annotation_data, interpolate_annotation
+
+
+def _transform_label(label, height=None, width=None):
+    # todo modify as not header
+    """
+    Taken from https://github.com/dmlc/gluon-cv/blob/master/gluoncv/data/recordio/detection.py
+    """
+    label = np.array(label).ravel()
+    header_len = int(label[0])  # label header
+    label_width = int(label[1])  # the label width for each object, >= 5
+    if label_width < 5:
+        raise ValueError(
+            "Label info for each object should >= 5, given {}".format(label_width))
+    min_len = header_len + 5
+    if len(label) < min_len:
+        raise ValueError(
+            "Expected label length >= {}, got {}".format(min_len, len(label)))
+    if (len(label) - header_len) % label_width:
+        raise ValueError(
+            "Broken label of size {}, cannot reshape into (N, {}) "
+            "if header length {} is excluded".format(len(label), label_width, header_len))
+    gcv_label = label[header_len:].reshape(-1, label_width)
+    # swap columns, gluon-cv requires [xmin-ymin-xmax-ymax-id-extra0-extra1-xxx]
+    ids = gcv_label[:, 0].copy()
+    gcv_label[:, :4] = gcv_label[:, 1:5]
+    gcv_label[:, 4] = ids
+    # restore to absolute coordinates
+    if height is not None:
+        gcv_label[:, (0, 2)] *= width
+    if width is not None:
+        gcv_label[:, (1, 3)] *= height
+    return gcv_label
 
 
 class CycleDataset(object):
@@ -17,13 +52,14 @@ class CycleDataset(object):
         Path to folder storing the dataset.
     """
 
-    def __init__(self, root, split_id, split, categories=['cyclist'], sample_type='frames'):
+    def __init__(self, root, split_id, split, categories=['cyclist'], sample_type='frames', pre_save_frames=True):
 
         assert sample_type in ['clips', 'frames']
 
         super(CycleDataset, self).__init__()
         self._root = os.path.expanduser(root)
         self._sample_type = sample_type
+        self._pre_save_frames = pre_save_frames
 
         # list of the splits to do
         self._split_id = split_id
@@ -38,6 +74,7 @@ class CycleDataset(object):
 
         # samples keyed by their id
         self._samples = self._load_samples()
+        self._sample_ids = self._samples.keys()
 
 
     # def __str__(self):
@@ -50,10 +87,30 @@ class CycleDataset(object):
         return len(self._categories)
 
     def __len__(self):
-        return len(self._data)
+        return len(self._samples)
 
     def __getitem__(self, idx):
-        return NotImplementedError
+        label = None # todo
+        if self._pre_save_frames:
+            img_path = self._generate_image_path(self._samples[idx])
+
+            if self._transform is not None:
+                img = self._transform(image.imread(img_path), label)
+            img = image.imread(img_path)  # 1 is rgb
+
+        else:
+            img = self._get_frame(self._samples[idx])
+            if self._transform is not None:
+                img = self._transform(image.imdecode(img), label)
+            img = image.imdecode(img)
+            # todo take from videos directly
+
+        h, w, _ = img.shape
+        if True:  # self._coord_normalized:
+            label = _transform_label(label, h, w)
+        else:
+            label = _transform_label(label)
+        return img, label
 
     def _load_data(self):
         data = {}
@@ -86,7 +143,8 @@ class CycleDataset(object):
         samples = {}
         with open(os.path.join(self._root, 'splits', self._split_id + "_"+self._split+".txt"), 'r') as f:
             lines = [line.rstrip().split('\t') for line in f.readlines()]
-        for line in lines:
+
+        for c, line in enumerate(lines):
             samples[int(line[0])] = (line[1], line[2])
 
         return samples
