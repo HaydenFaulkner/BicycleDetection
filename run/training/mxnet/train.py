@@ -13,12 +13,15 @@ from mxnet import autograd
 import gluoncv as gcv
 from gluoncv import utils as gutils
 from gluoncv.model_zoo import get_model
+from gluoncv.utils.metrics.voc_detection import VOC07MApMetric, VOCMApMetric
 
 from config.functions import load_config
-from data_processing.loading import load_datasets
+from data_processing.loading import load_datasets, get_dataloader
 
 CWD = os.getcwd()
+import sys
 
+sys.setrecursionlimit(10000)# It sets recursion limit to 10000.
 
 def save_params(net, best_map, current_map, epoch, save_interval, prefix):
     current_map = float(current_map)
@@ -72,7 +75,7 @@ def train_loop(net, train_data, val_data, eval_metric, ctx, logger, start_epoch,
 
     # lr decay policy
     lr_decay = float(cfg.train.lr_decay)
-    lr_steps = sorted([float(ls) for ls in cfg.train.lr_decay_epochs if ls.strip()])
+    lr_steps = sorted([float(ls) for ls in cfg.train.lr_decay_epochs])
 
     # setup losses
     mbox_loss = gcv.loss.SSDMultiBoxLoss()
@@ -150,22 +153,23 @@ def train(cfg_path):
     ctx = ctx if ctx else [mx.cpu()]
 
     # setup network
-    net_name = '_'.join((cfg.run_id, cfg.model.type, cfg.dataset.name))
+    net_name = '_'.join((cfg.run_id, cfg.model.type, cfg.data.name))
+    net_id = '_'.join((cfg.model.type, cfg.model.backbone.type, cfg.model.pretrained_on))
     model_path = os.path.join(cfg.model.root_dir, net_name)
     os.makedirs(model_path, exist_ok=True)
 
     # should just be able to use:
-    # net = get_model(net_name, classes=['stumps'], pretrained_base=True, transfer='voc')
+    # net = get_model(net_name, classes=cfg.classes, pretrained_base=True, transfer=cfg.model.pretrained_on)
     # but there is bug on in gluoncv ssd.py (line 809) where it's:
     # net = get_model('ssd_512_mobilenet1_0_' + str(transfer), pretrained=True, **kwargs)
     # rather than:
     # net = get_model('ssd_512_mobilenet1.0_' + str(transfer), pretrained=True, **kwargs)
     #
     # So we have to do it our own way for finetuning
-    if cfg.dataset.name == 'custom':
-        net = get_model(net_name, pretrained_base=True, classes=cfg.classes)  # just finetuning
+    if cfg.model.pretrained_on == 'custom':
+        net = get_model(net_id, pretrained_base=True, classes=cfg.classes)  # just finetuning
     else:
-        net = get_model(net_name, pretrained=True)  # just finetuning
+        net = get_model(net_id, pretrained=True)  # just finetuning
         # reset network to predict stumps
         net.reset_class(cfg.classes)
 
@@ -174,6 +178,7 @@ def train(cfg_path):
     start_epoch = 0
     if cfg.resume == -1:
         file_list = os.listdir(model_path)
+        # if len(file_list) > 0:
         # todo sort and filter
         # todo take latest
         # todo form name
@@ -191,11 +196,11 @@ def train(cfg_path):
             net.initialize()
 
     # load the data
-    train_dataset, val_dataset, test_dataset = load_datasets(cfg.data.root_dir, cfg.data.split_id)
+    train_dataset, val_dataset, test_dataset = load_datasets(cfg.data.root_dir, cfg.data.split_id, cfg.classes)
 
     train_data, val_data, test_data = get_dataloader(net, train_dataset, val_dataset, test_dataset, cfg.data.shape, cfg.train.batch_size, cfg.num_workers)
 
-    eval_metric = VOCMApMetric(iou_thresh=0.5, class_names=('bicycle',))
+    eval_metric = VOCMApMetric(iou_thresh=0.5, class_names=cfg.classes)
 
     # set up logger
     logging.basicConfig()

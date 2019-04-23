@@ -16,16 +16,18 @@ def get_default():
     # Shared Defaults
     config.run_type = 'detection'
     config.run_id = None
-    config.classes = ['bicycle']
+    config.classes = ['cyclist']
+    config.resume = -1
 
     # Model Defaults
     config.model = EasyDict()
     config.model.root_dir = 'models'
-    config.model.type = 'fasterRCNN'
+    config.model.type = 'ssd_512'
     config.model.id = None
+    config.model.pretrained_on = 'coco'
 
     config.model.backbone = EasyDict()
-    config.model.backbone.type = 'resnet50_v1b'  # Base network name which serves as feature extraction base.
+    config.model.backbone.type = 'resnet50_v1'  # Base network name which serves as feature extraction base.
     config.model.backbone.n_layers = 50
 
     # Dataset Defaults
@@ -62,5 +64,9 @@ def get_default():
     # Visualisation Defaults
     config.vis = EasyDict()
     config.vis.every = 1000  # minibatches .. 0 is never
+
+    config.log_interval = 100
+
+    config.checkpoint_every = 1
 
     return config

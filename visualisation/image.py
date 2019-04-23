@@ -7,7 +7,7 @@ from data_processing.image import extract_frames
 from data_processing.annotation import load_annotation_data, interpolate_annotation
 
 
-def pil_plot_bbox(out_path, img, bboxes,
+def pil_plot_bbox(img, bboxes, out_path=None,
                   scores=None, labels=None, thresh=0.5, class_names=None, colors=None, absolute_coordinates=True):
     """
     plot bounding boxes on an image and
@@ -18,8 +18,9 @@ def pil_plot_bbox(out_path, img, bboxes,
         img = Image.fromarray(img).convert('RGBA')
 
     if len(bboxes) < 1:
-        img.save(out_path, "png")
-        return
+        if out_path:
+            img.save(out_path, "png")
+        return img
 
     if not absolute_coordinates:
         # convert to absolute coordinates using image shape
@@ -42,6 +43,7 @@ def pil_plot_bbox(out_path, img, bboxes,
         cls_id = int(labels[i]) if labels is not None else -1
         if cls_id not in colors:
             colors[cls_id] = (int(256*random.random()), int(256*random.random()), int(256*random.random()))
+
         xmin, ymin, xmax, ymax = [int(x) for x in bbox]
         draw.rectangle(((xmin, ymin), (xmax, ymax)), fill=(255,0,0,60), outline=(255,0,0,255))
 
@@ -55,7 +57,9 @@ def pil_plot_bbox(out_path, img, bboxes,
             draw.text((xmin, ymin - 2), '{:s} {:s}'.format(class_name, score), fill=(255,0,0,255))
 
     img = Image.alpha_composite(img, overlay)
-    img.save(out_path, "png")
+    if out_path:
+        img.save(out_path, "png")
+    return img
 
 
 def display_gt_boxes(video_path, annotation_path, save_path, buffer_length=200, interpolate=True):
@@ -83,7 +87,9 @@ def display_gt_boxes(video_path, annotation_path, save_path, buffer_length=200, 
                 boxes = buffer_boxes[buffer_idx]
 
                 if len(boxes) > 0:
-                    pil_plot_bbox(out_path=os.path.join(save_path, "%08d.png" % (frame_num-len(buffer_boxes)+buffer_idx+1)), img=frame, bboxes=boxes,
+                    pil_plot_bbox(img=frame, bboxes=boxes,
+                                  out_path=os.path.join(save_path,
+                                                        "%08d.png" % (frame_num - len(buffer_boxes) + buffer_idx + 1)),
                                   scores=[1]*len(boxes), labels=[0]*len(boxes), class_names=['bike'])
 
             buffer_boxes = []
