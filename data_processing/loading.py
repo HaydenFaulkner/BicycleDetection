@@ -156,7 +156,14 @@ def generate_splits(root, split_id, sample_ids, ratios=[.8, .1, .1], exclusive_c
     return train_ids, val_ids, test_ids
 
 
-def load_datasets(root, split_id):
+def load_datasets(root, split_id, categories):
+    if not os.path.exists(os.path.join(root, 'splits', split_id + "_train.txt")) or \
+       not os.path.exists(os.path.join(root, 'splits', split_id + "_val.txt")) or \
+       not os.path.exists(os.path.join(root, 'splits', split_id + "_test.txt")):
+        data = load_data(root, categories)
+        sample_ids = load_sample_ids(data, sample_type='frames', allow_empty=False)
+        generate_splits(root, split_id=split_id, sample_ids=sample_ids, ratios=[.8, .1, .1],
+                        exclusive_clips=True, save=True)
 
     train_dataset = CycleDataset(root=root, split_id=split_id, split="train")
     val_dataset = CycleDataset(root=root, split_id=split_id, split="val")
@@ -192,7 +199,8 @@ def get_dataloader(net, train_dataset, val_dataset, test_dataset, data_shape, ba
     return train_loader, val_loader, test_loader
 
 if __name__ == '__main__':
-    root = os.getcwd()[:-11] + '/filtered'  # messy but should do if all named correctly
+    # root = os.getcwd()[:-11] + '/filtered'  # messy but should do if all named correctly
+    root = '/media/hayden/CASR_ACVT/data/filtered'  # todo remove direct path
 
     data = load_data(root, ['cyclist'])
     sample_ids = load_sample_ids(data, sample_type='frames', allow_empty=False)

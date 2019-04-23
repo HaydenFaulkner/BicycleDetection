@@ -65,6 +65,8 @@ def extract_frames(video_path, get_frames=-1, save_path=None):
     :return: frames: np.array, the images of the video (f, h, w, c) [0, 255]
     """
 
+    get_frames = [f-12 for f in get_frames]
+
     # Check the video exists
     if not os.path.exists(video_path):
         print("No video file found at : " + video_path)
@@ -121,4 +123,6 @@ def extract_frames(video_path, get_frames=-1, save_path=None):
             shutil.rmtree(save_path)
         # return None
 
+        # frames.append(np.zeros((cv2.CAP_PROP_FRAME_HEIGHT, cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_CHANNEL)))
+        frames.append(np.zeros((1080, 1920, 3)))
     return np.array(frames)

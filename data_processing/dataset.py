@@ -7,9 +7,12 @@ import numpy as np
 import os
 import random
 
+import mxnet as mx
 from mxnet import image
+from gluoncv.data.base import VisionDataset
 
 from data_processing.annotation import load_annotation_data, interpolate_annotation
+from data_processing.image import extract_frames
 
 
 def _transform_label(label, height=None, width=None):
@@ -44,7 +47,7 @@ def _transform_label(label, height=None, width=None):
     return gcv_label
 
 
-class CycleDataset(object):
+class CycleDataset(VisionDataset):
     """BiCycle dataset.
     Parameters
     ----------
@@ -52,11 +55,11 @@ class CycleDataset(object):
         Path to folder storing the dataset.
     """
 
-    def __init__(self, root, split_id, split, categories=['cyclist'], sample_type='frames', pre_save_frames=True):
+    def __init__(self, root, split_id, split, categories=['cyclist'], sample_type='frames', pre_save_frames=False):
 
         assert sample_type in ['clips', 'frames']
 
-        super(CycleDataset, self).__init__()
+        super(CycleDataset, self).__init__(root)
         self._root = os.path.expanduser(root)
         self._sample_type = sample_type
         self._pre_save_frames = pre_save_frames
@@ -74,7 +77,9 @@ class CycleDataset(object):
 
         # samples keyed by their id
         self._samples = self._load_samples()
-        self._sample_ids = self._samples.keys()
+        self._sample_ids = list(self._samples.keys())
+        self._sample_ids = self._sample_ids[:2000]  #todo debug limit set to 500 samples
+        random.shuffle(self._sample_ids)
 
 
     # def __str__(self):
@@ -87,30 +92,46 @@ class CycleDataset(object):
         return len(self._categories)
 
     def __len__(self):
-        return len(self._samples)
+        return len(self._sample_ids)
 
     def __getitem__(self, idx):
-        label = None # todo
+        label = self.get_boxes(self._sample_ids[idx])
+        label = np.array(label)#, dtype=np.float)
         if self._pre_save_frames:
-            img_path = self._generate_image_path(self._samples[idx])
+            img_path = self._generate_image_path(self._samples[self._sample_ids[idx]])
 
-            if self._transform is not None:
-                img = self._transform(image.imread(img_path), label)
-            img = image.imread(img_path)  # 1 is rgb
+            # if self._transform is not None:
+            #     img = self._transform(image.imread(img_path), label)
+            # img = image.imread(img_path)  # 1 is rgb
 
         else:
-            img = self._get_frame(self._samples[idx])
-            if self._transform is not None:
-                img = self._transform(image.imdecode(img), label)
-            img = image.imdecode(img)
+            img = self._get_frame(self._samples[self._sample_ids[idx]])
+            # if self._transform is not None:
+            #     img = self._transform(image.imdecode(img), label)
+            # img = image.imdecode(img)
+            img = np.squeeze(img)
+            # img = np.swapaxes(img, 0, 2)
+            img = mx.nd.array(img, dtype='uint8')
             # todo take from videos directly
 
-        h, w, _ = img.shape
-        if True:  # self._coord_normalized:
-            label = _transform_label(label, h, w)
-        else:
-            label = _transform_label(label)
+        # h, w, _ = img.shape
+        # if True:  # self._coord_normalized:
+        #     label = _transform_label(label, h, w)
+        # else:
+        #     label = _transform_label(label)
         return img, label
+
+    def _generate_image_path(self, sample):
+
+        if not os.path.exists(os.path.join(root, 'frames', sample[0])):
+            os.makedirs(os.path.join(root, 'frames', sample[0]))
+        return os.path.join(root, 'frames', sample[0])
+
+    def _get_frame(self, sample):
+        # img_path = self._generate_image_path(sample)
+        video_path = os.path.join(self._root, 'videos', sample[0][:-4]+'.mp4')
+        frame = extract_frames(video_path, get_frames=[sample[1]], save_path=None)
+        return frame
 
     def _load_data(self):
         data = {}
@@ -141,11 +162,13 @@ class CycleDataset(object):
 
     def _load_samples(self):
         samples = {}
+        assert os.path.exists(os.path.join(self._root, 'splits', self._split_id + "_"+self._split+".txt"))
+
         with open(os.path.join(self._root, 'splits', self._split_id + "_"+self._split+".txt"), 'r') as f:
             lines = [line.rstrip().split('\t') for line in f.readlines()]
 
         for c, line in enumerate(lines):
-            samples[int(line[0])] = (line[1], line[2])
+            samples[int(line[0])] = (line[1], int(line[2]))
 
         return samples
 
@@ -172,10 +195,11 @@ class CycleDataset(object):
     def get_boxes(self, sample_id):
         # todo how to handle for clip sample types, ie no frames, return dict or list of lists?
         # todo keep instance data?
-        clip_id, frame_id = self._sample_ids_map[sample_id]
+        # sample_id = self._sample_ids[index]
+        clip_id, frame_id = self._samples[sample_id]
         clip = self._data[clip_id]
 
-        if self._sample_type == 'clips' or frame_id < 0:
+        if self._sample_type == 'clips' or int(frame_id) < 0:
             boxes = {}
             for instance_id, instance in clip['instances'].items():
                 for frame_n, box in instance['key_boxes'].items():
@@ -580,10 +604,22 @@ class CycleDatasetAll(object):
 
 
 if __name__ == '__main__':
-    root = os.getcwd()[:-11] + '/filtered'  # messy but should do if all named correctly
+    # root = os.getcwd()[:-11] + '/filtered'  # messy but should do if all named correctly
+    root = '/media/hayden/CASR_ACVT/data/filtered'  # todo remove direct path
 
-    dataset = CycleDataset(root=root)
+    dataset = CycleDataset(root=root, split_id="001", split="val")
     # dataset.save_splits('testing')
-    boxes = dataset.get_boxes(0)
+    # boxes = dataset.get_boxes(1)
 
     print(dataset.statistics())
+
+    from visualisation.image import pil_plot_bbox
+    for s in dataset:
+        img = s[0].asnumpy()
+        bboxes = s[1]
+        labels = [bb[4] for bb in bboxes]
+        bboxes = [bb[:4] for bb in bboxes]
+        vis = pil_plot_bbox(img, bboxes, out_path=None,
+                      scores=None, labels=labels, thresh=0.5, class_names=['cyclist'], colors=None, absolute_coordinates=True)
+        vis.show()
+        print('')
