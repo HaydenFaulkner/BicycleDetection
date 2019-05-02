@@ -9,9 +9,11 @@ import random
 
 import mxnet as mx
 from mxnet import image
+
+from visualisation.image import pil_plot_bbox
 from gluoncv.data.base import VisionDataset
 
-from data_processing.annotation import load_annotation_data, interpolate_annotation
+from data_processing.annotation import load_annotation_txt_data, interpolate_annotation
 from data_processing.image import extract_frames
 
 
@@ -119,6 +121,14 @@ class CycleDataset(VisionDataset):
         #     label = _transform_label(label, h, w)
         # else:
         #     label = _transform_label(label)
+
+
+
+        labels = [bb[4] for bb in label]
+        bboxes = [bb[:4] for bb in label]
+        pil_plot_bbox(img.asnumpy(), bboxes, out_path="/media/hayden/UStorage/CODE/BicycleDetection/models/001_ssd_512_cycle/%03d.png"%idx,
+                      scores=None, labels=labels, thresh=0.5, class_names=['cyclist'], colors=None, absolute_coordinates=True)
+
         return img, label
 
     def _generate_image_path(self, sample):
@@ -135,9 +145,9 @@ class CycleDataset(VisionDataset):
 
     def _load_data(self):
         data = {}
-        for file in os.listdir(os.path.join(self._root, 'annotations')):
+        for file in os.listdir(os.path.join(self._root, 'annotations_txt')):
 
-            annotation = load_annotation_data(os.path.join(self._root, 'annotations', file))
+            annotation = load_annotation_txt_data(os.path.join(self._root, 'annotations_txt', file))
             # interpolate the frames
             annotation = interpolate_annotation(annotation)
 
@@ -613,7 +623,6 @@ if __name__ == '__main__':
 
     print(dataset.statistics())
 
-    from visualisation.image import pil_plot_bbox
     for s in dataset:
         img = s[0].asnumpy()
         bboxes = s[1]

@@ -12,15 +12,15 @@ from gluoncv.data.batchify import Tuple, Stack, Pad
 from gluoncv.data.transforms.presets.ssd import SSDDefaultTrainTransform
 from gluoncv.data.transforms.presets.ssd import SSDDefaultValTransform
 
-from data_processing.annotation import load_annotation_data, interpolate_annotation
+from data_processing.annotation import load_annotation_txt_data, interpolate_annotation
 from data_processing.dataset import CycleDataset
 
 
 def load_data(root, categories):
     data = {}
-    for file in os.listdir(os.path.join(root, 'annotations')):
+    for file in os.listdir(os.path.join(root, 'annotations_txt')):
 
-        annotation = load_annotation_data(os.path.join(root, 'annotations', file))
+        annotation = load_annotation_txt_data(os.path.join(root, 'annotations_txt', file))
         # interpolate the frames
         annotation = interpolate_annotation(annotation)
 
@@ -30,7 +30,7 @@ def load_data(root, categories):
         d_keys = set(annotation['instances'].keys())
         for instance_id, instance in annotation['instances'].items():
             for category in categories:
-                if category in instance['name']:
+                if category in instance['name'].lower():
                     d_keys.remove(instance_id)
                     for kb in instance['key_boxes'].values():
                         kb.append(categories.index(category))  # add category labels
@@ -206,5 +206,5 @@ if __name__ == '__main__':
     sample_ids = load_sample_ids(data, sample_type='frames', allow_empty=False)
     generate_splits(root, split_id="001", sample_ids=sample_ids, ratios=[.8, .1, .1], exclusive_clips=True, save=True)
 
-    train_dataset, val_dataset, test_dataset = load_datasets(root, split_id="001")
+    train_dataset, val_dataset, test_dataset = load_datasets(root, split_id="001", categories=['cyclist'])
     print('h')

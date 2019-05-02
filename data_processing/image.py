@@ -65,7 +65,7 @@ def extract_frames(video_path, get_frames=-1, save_path=None):
     :return: frames: np.array, the images of the video (f, h, w, c) [0, 255]
     """
 
-    get_frames = [f-12 for f in get_frames]
+    get_frames = [f for f in get_frames]
 
     # Check the video exists
     if not os.path.exists(video_path):
