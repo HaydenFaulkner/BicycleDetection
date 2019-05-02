@@ -126,6 +126,34 @@ def load_annotation_data(saa_file_path):
     return annotation
 
 
+def load_annotation_txt_data(txt_file_path):
+    """
+    Loads data from a single .txt annotation file into a dictionary
+
+    :param txt_file_path: str, the path to the .txt file
+    :return annotation: dict, containing all the important info
+    """
+    if not os.path.exists(txt_file_path):
+        raise FileNotFoundError
+
+    annotation = dict()
+
+    # Grab the object instance ids
+    annotation['instances'] = dict()
+
+    with open(txt_file_path, 'r') as f:
+        lines = f.readlines()
+    lines = [line.rstrip().split(',') for line in lines]
+
+    for line in lines:
+        if line[6] not in annotation['instances']:
+            annotation['instances'][line[6]] = {'name': line[6], 'key_boxes': {}}
+
+        annotation['instances'][line[6]]['key_boxes'][int(line[0])] = [int(line[1]), int(line[2]), int(line[3]), int(line[4]), int(line[5])]
+
+    return annotation
+
+
 def interpolate_annotation(annotation):
 
     for k, instance in annotation['instances'].items():  # for each instances
