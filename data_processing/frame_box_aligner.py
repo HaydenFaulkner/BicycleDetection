@@ -8,20 +8,15 @@ Generates an annotation file
 """
 
 import os
-import shutil
-import numpy as np
+import time
 import cv2
 
 from data_processing.annotation import load_annotation_data, interpolate_annotation
 
 def play_video(save_path, video_path, annotations):
     """
-
     :param video_path: str, the path to the video
     """
-
-
-
     # Check the video exists
     if not os.path.exists(video_path):
         print("No video file found at : " + video_path)
@@ -57,6 +52,7 @@ def play_video(save_path, video_path, annotations):
 
         past_frame_num = frame_num
 
+    time.sleep(3)
     save = True
     current = 0
     offset = -13
