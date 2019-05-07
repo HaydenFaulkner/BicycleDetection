@@ -82,7 +82,7 @@ class CycleDataset(VisionDataset):
         self._sample_ids = list(self._samples.keys())
         if shuffle:
             random.shuffle(self._sample_ids)
-        self._sample_ids = self._sample_ids[:100]  #todo debug limit set to 1000 samples
+        self._sample_ids = self._sample_ids[:10000]  #todo debug limit set to 1000 samples
 
     # def __str__(self):
     #     detail = ','.join([str(s) for s in self.splits])

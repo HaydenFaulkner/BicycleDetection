@@ -123,7 +123,7 @@ def evaluateb(net, dataset, ctx, eval_metric, vis=5):
                           bboxes=bboxes[0].asnumpy(),
                           scores=scores[0].asnumpy(),
                           labels=ids[0].asnumpy(),
-                          thresh=0.5,
+                          thresh=0.2,
                           class_names=net.classes)
         # update metric
         eval_metric.update([bboxes.clip(0, x.shape[2])], [ids], [scores], gt_bboxes, gt_ids, gt_difficults)
@@ -153,7 +153,7 @@ if __name__ == '__main__':
 
     eval_metric = VOCMApMetric(iou_thresh=0.5, class_names=net.classes)
 
-    map_name, mean_ap = evaluateb(net, dataset, ctx, eval_metric, vis=1000)
+    map_name, mean_ap = evaluateb(net, dataset, ctx, eval_metric, vis=2000)
     msg = '\n'.join(['{}={}'.format(k, v) for k, v in zip(map_name, mean_ap)])
     print(msg)
 
