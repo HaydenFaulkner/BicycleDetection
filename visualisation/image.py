@@ -40,21 +40,24 @@ def pil_plot_bbox(img, bboxes, out_path=None,
             continue
         if labels is not None and labels[i] < 0:
             continue
+
         cls_id = int(labels[i]) if labels is not None else -1
         if cls_id not in colors:
             colors[cls_id] = (int(256*random.random()), int(256*random.random()), int(256*random.random()))
 
         xmin, ymin, xmax, ymax = [int(x) for x in bbox]
-        draw.rectangle(((xmin, ymin), (xmax, ymax)), fill=(255,0,0,60), outline=(255,0,0,255))
+        draw.rectangle(((xmin, ymin), (xmax, ymax)), fill=(255, 0, 0, 60), outline=(255, 0, 0, 255))
 
         if class_names is not None and cls_id < len(class_names):
             class_name = class_names[cls_id]
         else:
             class_name = str(cls_id) if cls_id >= 0 else ''
-        score = '{:.3f}'.format(scores[i]) if scores is not None else ''
+
+        score = '{:.3f}'.format(float(scores[i])) if scores is not None else ''
+
         if class_name or score:
 
-            draw.text((xmin, ymin - 2), '{:s} {:s}'.format(class_name, score), fill=(255,0,0,255))
+            draw.text((xmin, ymin - 2), '{:s} {:s}'.format(class_name, score), fill=(255, 0, 0, 255))
 
     img = Image.alpha_composite(img, overlay)
     if out_path:

@@ -167,36 +167,30 @@ def load_datasets(root, split_id, categories):
 
     train_dataset = CycleDataset(root=root, split_id=split_id, split="train")
     val_dataset = CycleDataset(root=root, split_id=split_id, split="val")
-    test_dataset = CycleDataset(root=root, split_id=split_id, split="test")
+    test_dataset = CycleDataset(root=root, split_id=split_id, split="test", shuffle=False)
 
     return train_dataset, val_dataset, test_dataset
 
 
-def get_dataloader(net, train_dataset, val_dataset, test_dataset, data_shape, batch_size, num_workers):
+def get_dataloader(net, dataset, split, data_shape, batch_size, num_workers):
     """Get dataloader."""
     width, height = data_shape, data_shape
     # use fake data to generate fixed anchors for target generation
-    with autograd.train_mode():
-        _, _, anchors = net(mx.nd.zeros((1, 3, height, width)))
-    batchify_fn = Tuple(Stack(), Stack(), Stack())  # stack image, cls_targets, box_targets
-    train_loader = gluon.data.DataLoader(
-        train_dataset.transform(SSDDefaultTrainTransform(width, height, anchors)),
-        batch_size, True, batchify_fn=batchify_fn, last_batch='rollover', num_workers=num_workers)
+    if split == 'train':
+        with autograd.train_mode():
+            _, _, anchors = net(mx.nd.zeros((1, 3, height, width)))
 
-    val_loader = None
-    if val_dataset:
-        val_batchify_fn = Tuple(Stack(), Pad(pad_val=-1))
-        val_loader = gluon.data.DataLoader(
-            val_dataset.transform(SSDDefaultValTransform(width, height)),
-            batch_size, False, batchify_fn=val_batchify_fn, last_batch='keep', num_workers=num_workers)
+        batchify_fn = Tuple(Stack(), Stack(), Stack())  # stack image, cls_targets, box_targets
+        return gluon.data.DataLoader(dataset.transform(SSDDefaultTrainTransform(width, height, anchors)), batch_size,
+                                     True, batchify_fn=batchify_fn, last_batch='rollover', num_workers=num_workers)
 
-    test_loader = None
-    if test_dataset:
-        test_batchify_fn = Tuple(Stack(), Pad(pad_val=-1))
-        test_loader = gluon.data.DataLoader(
-            test_dataset.transform(SSDDefaultValTransform(width, height)),
-            batch_size, False, batchify_fn=test_batchify_fn, last_batch='keep', num_workers=num_workers)
-    return train_loader, val_loader, test_loader
+    elif split == 'val' or split == 'test':
+        batchify_fn = Tuple(Stack(), Pad(pad_val=-1))
+        return gluon.data.DataLoader(dataset.transform(SSDDefaultValTransform(width, height)), batch_size,
+                                     False, batchify_fn=batchify_fn, last_batch='keep', num_workers=num_workers)
+    else:
+        return None
+
 
 if __name__ == '__main__':
     # root = os.getcwd()[:-11] + '/filtered'  # messy but should do if all named correctly
@@ -207,4 +201,3 @@ if __name__ == '__main__':
     generate_splits(root, split_id="001", sample_ids=sample_ids, ratios=[.8, .1, .1], exclusive_clips=True, save=True)
 
     train_dataset, val_dataset, test_dataset = load_datasets(root, split_id="001", categories=['cyclist'])
-    print('h')

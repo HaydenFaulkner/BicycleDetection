@@ -5,6 +5,7 @@ Train script for mxnet object detection pipeline
 import os
 import logging
 import warnings
+import sys
 import time
 import numpy as np
 import mxnet as mx
@@ -14,14 +15,16 @@ import gluoncv as gcv
 from gluoncv import utils as gutils
 from gluoncv.model_zoo import get_model
 from gluoncv.utils.metrics.voc_detection import VOC07MApMetric, VOCMApMetric
+from tensorboardX import SummaryWriter
 
 from config.functions import load_config
 from data_processing.loading import load_datasets, get_dataloader
+from run.evaluation.mx import evaluate
 
 CWD = os.getcwd()
-import sys
 
-sys.setrecursionlimit(10000)# It sets recursion limit to 10000.
+sys.setrecursionlimit(10000)   # set recursion limit to 10000
+
 
 def save_params(net, best_map, current_map, epoch, save_interval, prefix):
     current_map = float(current_map)
@@ -29,45 +32,23 @@ def save_params(net, best_map, current_map, epoch, save_interval, prefix):
         best_map[0] = current_map
         net.save_params('{:s}best.params'.format(prefix, epoch, current_map))
         with open(prefix+'best_map.log', 'a') as f:
-            f.write('{:04d}:\t{:.4f}\n'.format(epoch, current_map))
+            f.write('e{:04d}:\t{:.4f}\n'.format(epoch, current_map))
     if save_interval and epoch % save_interval == 0:
-        net.save_params('{:s}{:04d}_{:.4f}.params'.format(prefix, epoch, current_map))
+        net.save_params('{:s}_e{:04d}_{:.4f}.params'.format(prefix, epoch, current_map))
 
 
-def val_loop(net, val_data, ctx, eval_metric):
-    """Test on validation dataset."""
-    eval_metric.reset()
-    # set nms threshold and topk constraint
-    net.set_nms(nms_thresh=0.45, nms_topk=400)
-    net.hybridize()
-    for batch in val_data:
-        data = gluon.utils.split_and_load(batch[0], ctx_list=ctx, batch_axis=0, even_split=False)
-        label = gluon.utils.split_and_load(batch[1], ctx_list=ctx, batch_axis=0, even_split=False)
-        det_bboxes = []
-        det_ids = []
-        det_scores = []
-        gt_bboxes = []
-        gt_ids = []
-        gt_difficults = []
-        for x, y in zip(data, label):
-            # get prediction results
-            ids, scores, bboxes = net(x)
-            det_ids.append(ids)
-            det_scores.append(scores)
-            # clip to image size
-            det_bboxes.append(bboxes.clip(0, batch[0].shape[2]))
-            # split ground truths
-            gt_ids.append(y.slice_axis(axis=-1, begin=4, end=5))
-            gt_bboxes.append(y.slice_axis(axis=-1, begin=0, end=4))
-            gt_difficults.append(y.slice_axis(axis=-1, begin=5, end=6) if y.shape[-1] > 5 else [None])  # put None in list to prevent cat error in voc_detection.py
-
-        # update metric
-        eval_metric.update(det_bboxes, det_ids, det_scores, gt_bboxes, gt_ids, gt_difficults)
-    return eval_metric.get()
-
-
-def train_loop(net, train_data, val_data, eval_metric, ctx, logger, start_epoch, cfg):
+def train_loop(net, train_dataset, val_dataset, eval_metric, ctx, logger, start_epoch, cfg, save_path):
     """Training pipeline"""
+
+    tb_sw = SummaryWriter(
+        log_dir=os.path.join(save_path, 'tb'),
+        comment=cfg.run_id)
+
+    # dataloader
+    train_dataloader = get_dataloader(net, train_dataset,
+                                      split='train', data_shape=cfg.data.shape,
+                                      batch_size=cfg.train.batch_size, num_workers=cfg.num_workers)
+
     net.collect_params().reset_ctx(ctx)
     trainer = gluon.Trainer(
         net.collect_params(), 'sgd',
@@ -96,11 +77,15 @@ def train_loop(net, train_data, val_data, eval_metric, ctx, logger, start_epoch,
         tic = time.time()
         btic = time.time()
         net.hybridize()
-        for i, batch in enumerate(train_data):
+        for i, batch in enumerate(train_dataloader):
+            batch_numpy = [b.asnumpy() for b in batch]
+
             batch_size = batch[0].shape[0]
             data = gluon.utils.split_and_load(batch[0], ctx_list=ctx, batch_axis=0)
             cls_targets = gluon.utils.split_and_load(batch[1], ctx_list=ctx, batch_axis=0)
             box_targets = gluon.utils.split_and_load(batch[2], ctx_list=ctx, batch_axis=0)
+
+            # data_numpy = data.cpu().asnumpy()
             with autograd.record():
                 cls_preds = []
                 box_preds = []
@@ -108,8 +93,12 @@ def train_loop(net, train_data, val_data, eval_metric, ctx, logger, start_epoch,
                     cls_pred, box_pred, _ = net(x)
                     cls_preds.append(cls_pred)
                     box_preds.append(box_pred)
-                sum_loss, cls_loss, box_loss = mbox_loss(
-                    cls_preds, box_preds, cls_targets, box_targets)
+                sum_loss, cls_loss, box_loss = mbox_loss(cls_preds, box_preds, cls_targets, box_targets)
+
+                global_step = epoch * len(train_dataloader) + i
+                tb_sw.add_scalar(tag='Training_loss', scalar_value=sum_loss[0], global_step=global_step)
+                tb_sw.add_scalar(tag='Training_cls_loss', scalar_value=cls_loss[0], global_step=global_step)
+                tb_sw.add_scalar(tag='Training_box_loss', scalar_value=box_loss[0], global_step=global_step)
                 autograd.backward(sum_loss)
             # since we have already normalized the loss, we don't want to normalize
             # by batch-size anymore
@@ -122,6 +111,7 @@ def train_loop(net, train_data, val_data, eval_metric, ctx, logger, start_epoch,
                 logger.info('[Epoch {}][Batch {}], Speed: {:.3f} samples/sec, {}={:.3f}, {}={:.3f}'.format(
                     epoch, i, batch_size/(time.time()-btic), name1, loss1, name2, loss2))
             btic = time.time()
+            break
 
         name1, loss1 = ce_metric.get()
         name2, loss2 = smoothl1_metric.get()
@@ -129,13 +119,14 @@ def train_loop(net, train_data, val_data, eval_metric, ctx, logger, start_epoch,
             epoch, (time.time()-tic), name1, loss1, name2, loss2))
         if (epoch % cfg.train.val_every == 0) or (cfg.train.checkpoint_every and epoch % cfg.train.checkpoint_every == 0):
             # consider reduce the frequency of validation to save time
-            map_name, mean_ap = val_loop(net, val_data, ctx, eval_metric)
+            map_name, mean_ap = evaluate(net, val_dataset, ctx, eval_metric, vis=10)
             val_msg = '\n'.join(['{}={}'.format(k, v) for k, v in zip(map_name, mean_ap)])
             logger.info('[Epoch {}] Validation: \n{}'.format(epoch, val_msg))
             current_map = float(mean_ap[-1])
+            tb_sw.add_scalar(tag='mAP', scalar_value=current_map, global_step=global_step)
         else:
             current_map = 0.
-        save_params(net, best_map, current_map, epoch, cfg.checkpoint_every, '')
+        save_params(net, best_map, current_map, epoch, cfg.checkpoint_every, save_path)
 
     return logger
 
@@ -195,10 +186,8 @@ def train(cfg_path):
             warnings.simplefilter("always")
             net.initialize()
 
-    # load the data
+    # load the dataset splits
     train_dataset, val_dataset, test_dataset = load_datasets(cfg.data.root_dir, cfg.data.split_id, cfg.classes)
-
-    train_data, val_data, test_data = get_dataloader(net, train_dataset, val_dataset, test_dataset, cfg.data.shape, cfg.train.batch_size, cfg.num_workers)
 
     eval_metric = VOCMApMetric(iou_thresh=0.5, class_names=cfg.classes)
 
@@ -213,4 +202,6 @@ def train(cfg_path):
     # training
     print("TRAINING")
     if cfg.train.epochs-start_epoch > 0:
-        train_loop(net, train_data, val_data, eval_metric, ctx, logger, start_epoch, cfg)
+        train_loop(net, train_dataset, val_dataset, eval_metric, ctx, logger, start_epoch, cfg, model_path)
+
+    #evaluate?

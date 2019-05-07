@@ -57,7 +57,7 @@ class CycleDataset(VisionDataset):
         Path to folder storing the dataset.
     """
 
-    def __init__(self, root, split_id, split, categories=['cyclist'], sample_type='frames', pre_save_frames=False):
+    def __init__(self, root, split_id, split, categories=['cyclist'], sample_type='frames', pre_save_frames=False, shuffle=True):
 
         assert sample_type in ['clips', 'frames']
 
@@ -80,9 +80,9 @@ class CycleDataset(VisionDataset):
         # samples keyed by their id
         self._samples = self._load_samples()
         self._sample_ids = list(self._samples.keys())
-        self._sample_ids = self._sample_ids[:2000]  #todo debug limit set to 500 samples
-        random.shuffle(self._sample_ids)
-
+        if shuffle:
+            random.shuffle(self._sample_ids)
+        self._sample_ids = self._sample_ids[:100]  #todo debug limit set to 1000 samples
 
     # def __str__(self):
     #     detail = ','.join([str(s) for s in self.splits])
@@ -124,10 +124,10 @@ class CycleDataset(VisionDataset):
 
 
 
-        labels = [bb[4] for bb in label]
-        bboxes = [bb[:4] for bb in label]
-        pil_plot_bbox(img.asnumpy(), bboxes, out_path="/media/hayden/UStorage/CODE/BicycleDetection/models/001_ssd_512_cycle/%03d.png"%idx,
-                      scores=None, labels=labels, thresh=0.5, class_names=['cyclist'], colors=None, absolute_coordinates=True)
+        # labels = [bb[4] for bb in label]
+        # bboxes = [bb[:4] for bb in label]
+        # pil_plot_bbox(img.asnumpy(), bboxes, out_path="/media/hayden/UStorage/CODE/BicycleDetection/models/001_ssd_512_cycle/%03d.png"%idx,
+        #               scores=None, labels=labels, thresh=0.5, class_names=['cyclist'], colors=None, absolute_coordinates=True)
 
         return img, label
 
