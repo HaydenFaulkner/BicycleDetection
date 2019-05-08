@@ -2,11 +2,11 @@
 data_processing.annotation contains functions for processing annotation data
 
 """
+import copy
+import numpy as np
 import os
 import sqlite3
 import subprocess
-
-import numpy as np
 
 
 def organise_data():
@@ -155,6 +155,7 @@ def load_annotation_txt_data(txt_file_path):
 
 
 def interpolate_annotation(annotation):
+    annotation = copy.deepcopy(annotation)
 
     for k, instance in annotation['instances'].items():  # for each instances
         frames = list(instance['key_boxes'].keys())

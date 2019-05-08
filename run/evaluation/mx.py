@@ -118,7 +118,7 @@ def evaluateb(net, dataset, ctx, eval_metric, vis=5):
         bboxes[0] = tbbox.resize(bboxes[0], in_size=(512, 512), out_size=(ow, oh))
         if vis > 0:
             vis -= 1
-            pil_plot_bbox(out_path="/media/hayden/UStorage/CODE/BicycleDetection/models/ssd_512_resnet50_v1_voc/test_%03d.png" % vis_org-vis,
+            pil_plot_bbox(out_path="/media/hayden/UStorage/CODE/BicycleDetection/models/ssd_512_resnet50_v1_voc/test_%03d.png" % (vis_org-vis),
                           img=image,
                           bboxes=bboxes[0].asnumpy(),
                           scores=scores[0].asnumpy(),
@@ -133,8 +133,9 @@ if __name__ == '__main__':
     from config.functions import load_config
     from gluoncv import model_zoo
     from gluoncv import utils as gutils
-    from data_processing.loading import load_datasets
     from gluoncv.utils.metrics.voc_detection import VOCMApMetric
+    from data_processing.dataset import CycleDataset
+
     cfg = load_config('/media/hayden/UStorage/CODE/BicycleDetection/configs/001.yaml')
 
     # set the random seed
@@ -142,8 +143,9 @@ if __name__ == '__main__':
 
     net = model_zoo.get_model('ssd_512_resnet50_v1_voc', pretrained=True)
 
-    _, _, dataset = load_datasets(cfg.data.root_dir, cfg.data.split_id, cfg.classes)
+    dataset = CycleDataset(root=cfg.data.root_dir, split_id=cfg.data.split_id, split="test", shuffle=False, percent=.1)
 
+    print(dataset.statistics())
 
     # training contexts ie. gpu or cpu
     ctx = [mx.gpu(int(i)) for i in cfg.gpus.split(',') if i.strip()]
@@ -153,7 +155,7 @@ if __name__ == '__main__':
 
     eval_metric = VOCMApMetric(iou_thresh=0.5, class_names=net.classes)
 
-    map_name, mean_ap = evaluateb(net, dataset, ctx, eval_metric, vis=2000)
+    map_name, mean_ap = evaluateb(net, dataset, ctx, eval_metric, vis=4000)
     msg = '\n'.join(['{}={}'.format(k, v) for k, v in zip(map_name, mean_ap)])
     print(msg)
 

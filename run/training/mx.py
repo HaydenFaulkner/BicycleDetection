@@ -187,8 +187,11 @@ def train(cfg_path):
             net.initialize()
 
     # load the dataset splits
-    train_dataset, val_dataset, test_dataset = load_datasets(cfg.data.root_dir, cfg.data.split_id, cfg.classes)
+    train_dataset, val_dataset, test_dataset = load_datasets(cfg.data.root_dir, cfg.data.split_id, cfg.classes, percent=.15)
 
+    print(train_dataset.statistics())
+    print(val_dataset.statistics())
+    print(test_dataset.statistics())
     eval_metric = VOCMApMetric(iou_thresh=0.5, class_names=cfg.classes)
 
     # set up logger

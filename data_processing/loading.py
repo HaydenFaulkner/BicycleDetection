@@ -46,22 +46,28 @@ def load_data(root, categories):
 
 def load_sample_ids(data, sample_type='frames', allow_empty=False):
     sample_ids = {}
-
+    assert sample_type == 'frames'
+    assert allow_empty is False
     if sample_type == 'clips':
-        for clip_id, clip in data.items():
-            sample_id = len(sample_ids)
-            sample_ids[sample_id] = (clip_id, -1)
+        pass
+        # todo
+        # for clip_id, clip in data.items():
+        #     sample_id = len(sample_ids)
+        #     sample_ids[sample_id] = (clip_id, -1)
     elif allow_empty:  # all frames are samples even if they don't contain boxes
-
-        for clip_id, clip in data.items():
-            for frame_id in range(clip['total_frames']):
-                sample_id = len(sample_ids)
-                sample_ids[sample_id] = (clip_id, frame_id)
+        pass
+        # todo
+        # for clip_id, clip in data.items():
+        #     for frame_id in range(clip['total_frames']):
+        #         sample_id = len(sample_ids)
+        #         sample_ids[sample_id] = (clip_id, frame_id)
     else:
         for clip_id, clip in data.items():
             frames = set([])
             for instance_id, instance in clip['instances'].items():
-                for frame_id, box in instance['key_boxes'].items():
+                sorted_frames = list(instance['key_boxes'].keys())
+                sorted_frames.sort()
+                for frame_id in sorted_frames:
                     if frame_id not in frames:
                         if frame_id < 0:
                             print(instance)
@@ -156,7 +162,7 @@ def generate_splits(root, split_id, sample_ids, ratios=[.8, .1, .1], exclusive_c
     return train_ids, val_ids, test_ids
 
 
-def load_datasets(root, split_id, categories):
+def load_datasets(root, split_id, categories, percent=1):
     if not os.path.exists(os.path.join(root, 'splits', split_id + "_train.txt")) or \
        not os.path.exists(os.path.join(root, 'splits', split_id + "_val.txt")) or \
        not os.path.exists(os.path.join(root, 'splits', split_id + "_test.txt")):
@@ -165,9 +171,9 @@ def load_datasets(root, split_id, categories):
         generate_splits(root, split_id=split_id, sample_ids=sample_ids, ratios=[.8, .1, .1],
                         exclusive_clips=True, save=True)
 
-    train_dataset = CycleDataset(root=root, split_id=split_id, split="train")
-    val_dataset = CycleDataset(root=root, split_id=split_id, split="val")
-    test_dataset = CycleDataset(root=root, split_id=split_id, split="test", shuffle=False)
+    train_dataset = CycleDataset(root=root, split_id=split_id, split="train", percent=percent)
+    val_dataset = CycleDataset(root=root, split_id=split_id, split="val", percent=percent)
+    test_dataset = CycleDataset(root=root, split_id=split_id, split="test", shuffle=False, percent=percent)
 
     return train_dataset, val_dataset, test_dataset
 
