@@ -67,6 +67,11 @@ def extract_frames(video_path, get_frames=-1, save_path=None):
 
     get_frames = [f for f in get_frames]
 
+    if len(get_frames) == 1 and save_path:
+        if os.path.exists(os.path.join(save_path, ("%08d.jpg" % get_frames[0]))):
+            frame = cv2.imread(os.path.join(save_path, ("%08d.jpg" % get_frames[0])))
+            return np.array([cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)])
+
     # Check the video exists
     if not os.path.exists(video_path):
         print("No video file found at : " + video_path)
@@ -104,7 +109,7 @@ def extract_frames(video_path, get_frames=-1, save_path=None):
             break
 
         if current in get_frames:
-            frames.append(cv2.cvtColor(frame,cv2.COLOR_BGR2RGB))
+            frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             got_frames.append(current)
 
             # save frame to file
@@ -126,3 +131,60 @@ def extract_frames(video_path, get_frames=-1, save_path=None):
         # frames.append(np.zeros((cv2.CAP_PROP_FRAME_HEIGHT, cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_CHANNEL)))
         frames.append(np.zeros((1080, 1920, 3)))
     return np.array(frames)
+
+
+def imgs_to_vid(frames_dir, ext='.mp4', fps=25, repeat=1, delete_frames_dir=True):
+    """
+    Makes a video from a directory of images, will order in alphabetical
+    requires opencv
+    :param frames_dir: the directory containing the image files, expects it to ONLY contain image files
+    :param ext: the video extension, default .mp4
+    :param fps: the fps to save the video as
+    :param delete_frames_dir: boolean flag to delete the frames_dir after successful video creation, default True
+    :return: the video path if successful, otherwise None
+    """
+
+    img_list = os.listdir(frames_dir)
+    # for i in range(len(img_list)):
+    #     if len(img_list[i]) == 12:
+    #         # img_list[i] = "test_0"+img_list[i][5:]
+    #         os.rename(os.path.join(frames_dir, img_list[i]), os.path.join(frames_dir, "test_0"+img_list[i][5:]))
+    # return
+    img_list.sort()
+
+    # # ensure ordered correctly
+    # img_order_dict = {}
+    # for i in range(len(img_list)):
+    #     img_name = int(img_list[i][:-4])
+    #     img_order_dict["%08d" % img_name] = img_list[i]
+
+    # img_order = sorted(img_order_dict.keys())
+
+    # load the first image to get the frame dims
+    image = cv2.imread(os.path.join(frames_dir, img_list[0]))
+    height = image.shape[0]
+    width = image.shape[1]
+
+    if ext == '.mp4':
+        video = cv2.VideoWriter(frames_dir+ext, cv2.VideoWriter_fourcc('F', 'M', 'P', '4'), fps, (width, height))
+    elif ext == '.avi':
+        video = cv2.VideoWriter(frames_dir+ext, cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'), fps, (width, height))
+
+    for i in range(len(img_list)):
+        image = cv2.imread(os.path.join(frames_dir, img_list[i]))  # load frame
+        for _ in range(repeat):
+            video.write(image)
+
+    video.release()
+
+    if os.path.exists(frames_dir+ext):
+        if delete_frames_dir:  # when successful let's check if we want to delete first
+            shutil.rmtree(frames_dir)
+        return frames_dir+ext  # was successful
+
+    shutil.rmtree(frames_dir)
+    return None  # wasn't successful
+
+
+if __name__ == '__main__':
+    imgs_to_vid("/media/hayden/UStorage/CODE/BicycleDetection/models/ssd_512_resnet50_v1_voc", ext='.mp4', fps=25, repeat=10, delete_frames_dir=False)

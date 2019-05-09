@@ -1,7 +1,7 @@
-run_id: '001'
+run_id: '002'
 
 model:
-  type: 'ssd_512'
+  type: 'faster_rcnn'
   id: '01'  # frozen
   pretrained_on: 'custom'
 

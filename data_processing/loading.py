@@ -5,13 +5,6 @@ For loading datasets and building splits with the data
 import os
 import random
 
-import mxnet as mx
-from mxnet import gluon
-from mxnet import autograd
-from gluoncv.data.batchify import Tuple, Stack, Pad
-from gluoncv.data.transforms.presets.ssd import SSDDefaultTrainTransform
-from gluoncv.data.transforms.presets.ssd import SSDDefaultValTransform
-
 from data_processing.annotation import load_annotation_txt_data, interpolate_annotation
 from data_processing.dataset import CycleDataset
 
@@ -171,31 +164,11 @@ def load_datasets(root, split_id, categories, percent=1):
         generate_splits(root, split_id=split_id, sample_ids=sample_ids, ratios=[.8, .1, .1],
                         exclusive_clips=True, save=True)
 
-    train_dataset = CycleDataset(root=root, split_id=split_id, split="train", percent=percent)
-    val_dataset = CycleDataset(root=root, split_id=split_id, split="val", percent=percent)
+    train_dataset = CycleDataset(root=root, split_id=split_id, split="train", cache_frames=True, percent=percent)
+    val_dataset = CycleDataset(root=root, split_id=split_id, split="val", cache_frames=True, percent=percent)
     test_dataset = CycleDataset(root=root, split_id=split_id, split="test", shuffle=False, percent=percent)
 
     return train_dataset, val_dataset, test_dataset
-
-
-def get_dataloader(net, dataset, split, data_shape, batch_size, num_workers):
-    """Get dataloader."""
-    width, height = data_shape, data_shape
-    # use fake data to generate fixed anchors for target generation
-    if split == 'train':
-        with autograd.train_mode():
-            _, _, anchors = net(mx.nd.zeros((1, 3, height, width)))
-
-        batchify_fn = Tuple(Stack(), Stack(), Stack())  # stack image, cls_targets, box_targets
-        return gluon.data.DataLoader(dataset.transform(SSDDefaultTrainTransform(width, height, anchors)), batch_size,
-                                     True, batchify_fn=batchify_fn, last_batch='rollover', num_workers=num_workers)
-
-    elif split == 'val' or split == 'test':
-        batchify_fn = Tuple(Stack(), Pad(pad_val=-1))
-        return gluon.data.DataLoader(dataset.transform(SSDDefaultValTransform(width, height)), batch_size,
-                                     False, batchify_fn=batchify_fn, last_batch='keep', num_workers=num_workers)
-    else:
-        return None
 
 
 if __name__ == '__main__':

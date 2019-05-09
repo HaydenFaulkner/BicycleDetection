@@ -65,6 +65,8 @@ def evaluate(net, dataset, ctx, eval_metric, vis=5):
     net.set_nms(nms_thresh=0.45, nms_topk=400)
     net.hybridize()
     for x, y in dataset:  # gets a single sample
+        if len(y) < 1:  # todo remove such samples from set?
+            continue
 
         x, image = transform_test(x, 512)
         x = x.copyto(ctx[0])
@@ -80,15 +82,16 @@ def evaluate(net, dataset, ctx, eval_metric, vis=5):
         bboxes[0] = tbbox.resize(bboxes[0], in_size=(512, 512), out_size=(ow, oh))
         if vis > 0:
             vis -= 1
-            pil_plot_bbox(out_path="/media/hayden/UStorage/CODE/BicycleDetection/models/001_ssd_512_cycle/test_%03d.png" % vis,
+            pil_plot_bbox(out_path="/media/hayden/UStorage/CODE/BicycleDetection/models/vis/test_%03d.png" % vis,
                           img=image,
                           bboxes=bboxes[0].asnumpy(),
                           scores=scores[0].asnumpy(),
                           labels=ids[0].asnumpy(),
                           thresh=0.5,
-                          class_names=['cycle'])
+                          class_names=net.classes)
         # update metric
-        eval_metric.update([bboxes.clip(0, x.shape[2])], [ids], [scores], gt_bboxes, gt_ids, gt_difficults)
+        eval_metric.update([bboxes.clip(0, x.shape[2])], [ids], [scores],
+                           gt_bboxes, gt_ids, gt_difficults)
     return eval_metric.get()
 
 
@@ -102,6 +105,8 @@ def evaluateb(net, dataset, ctx, eval_metric, vis=5):
     net.set_nms(nms_thresh=0.45, nms_topk=400)
     net.hybridize()
     for x, y in dataset:  # gets a single sample
+        if len(y) < 1:
+            continue
 
         x, image = transform_test(x, 512)
         x = x.copyto(ctx[0])
@@ -128,6 +133,7 @@ def evaluateb(net, dataset, ctx, eval_metric, vis=5):
         # update metric
         eval_metric.update([bboxes.clip(0, x.shape[2])], [ids], [scores], gt_bboxes, gt_ids, gt_difficults)
     return eval_metric.get()
+
 
 if __name__ == '__main__':
     from config.functions import load_config

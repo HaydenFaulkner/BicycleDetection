@@ -58,14 +58,14 @@ class CycleDataset(VisionDataset):
         Path to folder storing the dataset.
     """
 
-    def __init__(self, root, split_id, split, categories=['cyclist'], sample_type='frames', pre_save_frames=False, shuffle=True, percent=1):
+    def __init__(self, root, split_id, split, categories=['cyclist'], sample_type='frames', cache_frames=False, shuffle=True, percent=1):
 
         assert sample_type in ['clips', 'frames']
 
         super(CycleDataset, self).__init__(root)
         self._root = os.path.expanduser(root)
         self._sample_type = sample_type
-        self._pre_save_frames = pre_save_frames
+        self._cache_frames = cache_frames
 
         # list of the splits to do
         self._split_id = split_id
@@ -81,11 +81,11 @@ class CycleDataset(VisionDataset):
         # samples keyed by their id
         self._samples = self._load_samples()
         self._sample_ids = list(self._samples.keys())
-        if shuffle:
-            random.shuffle(self._sample_ids)
         if percent < 1:
             step = int(math.floor(len(self._sample_ids) / (len(self._sample_ids)*percent)))
             self._sample_ids = [self._sample_ids[i] for i in range(0, len(self._sample_ids), step)]
+        if shuffle:
+            random.shuffle(self._sample_ids)
 
     # def __str__(self):
     #     detail = ','.join([str(s) for s in self.splits])
@@ -102,22 +102,14 @@ class CycleDataset(VisionDataset):
     def __getitem__(self, idx):
         label = self.get_boxes(self._sample_ids[idx])
         label = np.array(label)#, dtype=np.float)
-        if self._pre_save_frames:
-            img_path = self._generate_image_path(self._samples[self._sample_ids[idx]])
 
-            # if self._transform is not None:
-            #     img = self._transform(image.imread(img_path), label)
-            # img = image.imread(img_path)  # 1 is rgb
-
-        else:
-            img = self._get_frame(self._samples[self._sample_ids[idx]])
-            # if self._transform is not None:
-            #     img = self._transform(image.imdecode(img), label)
-            # img = image.imdecode(img)
-            img = np.squeeze(img)
-            # img = np.swapaxes(img, 0, 2)
-            img = mx.nd.array(img, dtype='uint8')
-            # todo take from videos directly
+        img = self._get_frame(self._samples[self._sample_ids[idx]], cache=self._cache_frames)
+        # if self._transform is not None:
+        #     img = self._transform(image.imdecode(img), label)
+        # img = image.imdecode(img)
+        img = np.squeeze(img)
+        # img = np.swapaxes(img, 0, 2)
+        img = mx.nd.array(img, dtype='uint8')
 
         # h, w, _ = img.shape
         # if True:  # self._coord_normalized:
@@ -125,25 +117,20 @@ class CycleDataset(VisionDataset):
         # else:
         #     label = _transform_label(label)
 
-
-
-        # labels = [bb[4] for bb in label]
-        # bboxes = [bb[:4] for bb in label]
-        # pil_plot_bbox(img.asnumpy(), bboxes, out_path="/media/hayden/UStorage/CODE/BicycleDetection/models/001_ssd_512_cycle/%03d.png"%idx,
-        #               scores=None, labels=labels, thresh=0.5, class_names=['cyclist'], colors=None, absolute_coordinates=True)
-
         return img, label
 
     def _generate_image_path(self, sample):
 
-        if not os.path.exists(os.path.join(root, 'frames', sample[0])):
-            os.makedirs(os.path.join(root, 'frames', sample[0]))
-        return os.path.join(root, 'frames', sample[0])
+        if not os.path.exists(os.path.join(self._root, 'frames', sample[0])):
+            os.makedirs(os.path.join(self._root, 'frames', sample[0]))
+        return os.path.join(self._root, 'frames', sample[0])
 
-    def _get_frame(self, sample):
-        # img_path = self._generate_image_path(sample)
+    def _get_frame(self, sample, cache=False):
+        img_path = None
+        if cache:
+            img_path = self._generate_image_path(sample)
         video_path = os.path.join(self._root, 'videos', sample[0][:-4]+'.mp4')
-        frame = extract_frames(video_path, get_frames=[sample[1]], save_path=None)
+        frame = extract_frames(video_path, get_frames=[sample[1]], save_path=img_path)
         return frame
 
     def _load_data(self):

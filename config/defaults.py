@@ -12,6 +12,7 @@ def get_default():
     config.seed = 233
     config.gpus = '0'
     config.num_workers = 1
+    config.mixup = False
 
     # Shared Defaults
     config.run_type = 'detection'
