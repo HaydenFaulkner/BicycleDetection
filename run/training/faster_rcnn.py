@@ -129,6 +129,7 @@ def save_params(net, logger, best_map, current_map, epoch, save_interval, prefix
             epoch, '{:s}/{:04d}_{:.4f}.params'.format(prefix, epoch, current_map)))
         net.save_parameters('{:s}/{:04d}_{:.4f}.params'.format(prefix, epoch, current_map))
 
+
 def split_and_load(batch, ctx_list):
     """Split data to 1 batch each device."""
     num_ctx = len(ctx_list)
@@ -138,7 +139,8 @@ def split_and_load(batch, ctx_list):
         new_batch.append(new_data)
     return new_batch
 
-def validate(net, val_data, ctx, eval_metric):
+
+def validate(net, val_data, ctx, eval_metric):  # original validation script
     """Test on validation dataset."""
     clipper = gcv.nn.bbox.BBoxClipToImage()
     eval_metric.reset()
@@ -174,8 +176,12 @@ def validate(net, val_data, ctx, eval_metric):
             eval_metric.update(det_bbox, det_id, det_score, gt_bbox, gt_id, gt_diff)
     return eval_metric.get()
 
-def evaluate(net, dataset, ctx, eval_metric, vis=50):
+
+def evaluate(net, dataset, ctx, eval_metric, vis=50, vis_path=None):
     """Test on validation dataset."""
+    if vis_path is not None:
+        os.makedirs(os.path.join(vis_path, "val_vis"), exist_ok=True)
+
     clipper = gcv.nn.bbox.BBoxClipToImage()
     eval_metric.reset()
     net.hybridize(static_alloc=True)
@@ -198,7 +204,7 @@ def evaluate(net, dataset, ctx, eval_metric, vis=50):
         bboxes[0] = tbbox.resize(bboxes[0], in_size=(iw, ih), out_size=(ow, oh))
         if vis > 0:
             vis -= 1
-            pil_plot_bbox(out_path="/media/hayden/UStorage/CODE/BicycleDetection/models/vis_frcnn/test_%03d.png" % vis,
+            pil_plot_bbox(out_path=os.path.join(vis_path, "val_vis", "%03d.png" % vis),
                           img=image,
                           bboxes=bboxes[0].asnumpy(),
                           scores=scores[0].asnumpy(),
@@ -210,8 +216,10 @@ def evaluate(net, dataset, ctx, eval_metric, vis=50):
         eval_metric.update([clipper(bboxes, x)], [ids], [scores], gt_bboxes, gt_ids, gt_difficults)
     return eval_metric.get()
 
+
 def get_lr_at_iter(alpha):
     return 1. / 3. * (1 - alpha) + alpha
+
 
 def train(net, train_dataset, val_dataset, eval_metric, ctx, logger, start_epoch, cfg, save_path):
     """Training pipeline"""
@@ -351,13 +359,13 @@ def train(net, train_dataset, val_dataset, eval_metric, ctx, logger, start_epoch
             epoch, (time.time()-tic), msg))
         if (epoch % cfg.train.val_every == 0) or (cfg.train.checkpoint_every and epoch % cfg.train.checkpoint_every == 0):
             # consider reduce the frequency of validation to save time
-            map_name, mean_ap = evaluate(net, val_dataset, ctx, eval_metric)
+            map_name, mean_ap = evaluate(net, val_dataset, ctx, eval_metric, vis=100, vis_path=save_path)
             val_msg = '\n'.join(['{}={}'.format(k, v) for k, v in zip(map_name, mean_ap)])
             logger.info('[Epoch {}] Validation: \n{}'.format(epoch, val_msg))
             current_map = float(mean_ap[-1])
             tb_sw.add_scalar(tag='mAP', scalar_value=current_map, global_step=global_step)
         else:
             current_map = 0.
-        # save_params(net, logger, best_map, current_map, epoch, cfg.checkpoint_every, save_path)
+        save_params(net, logger, best_map, current_map, epoch, cfg.checkpoint_every, save_path)
 
     return logger

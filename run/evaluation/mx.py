@@ -59,8 +59,11 @@ def transform_test(imgs, short=600, max_size=1000, mean=(0.485, 0.456, 0.406), s
     return tensors, origs
 
 
-def evaluate(net, dataset, ctx, eval_metric, vis=50):
+def evaluate(net, dataset, ctx, eval_metric, vis=50, vis_path=None):
     """Test on validation dataset."""
+    if vis_path is not None:
+        os.makedirs(os.path.join(vis_path, "val_vis"), exist_ok=True)
+
     eval_metric.reset()
     # set nms threshold and topk constraint
     net.set_nms(nms_thresh=0.45, nms_topk=400)
@@ -83,7 +86,7 @@ def evaluate(net, dataset, ctx, eval_metric, vis=50):
         bboxes[0] = tbbox.resize(bboxes[0], in_size=(512, 512), out_size=(ow, oh))
         if vis > 0:
             vis -= 1
-            pil_plot_bbox(out_path="/media/hayden/UStorage/CODE/BicycleDetection/models/vis/test_%03d.png" % vis,
+            pil_plot_bbox(out_path=os.path.join(vis_path, "val_vis", "%03d.png" % vis),
                           img=image,
                           bboxes=bboxes[0].asnumpy(),
                           scores=scores[0].asnumpy(),

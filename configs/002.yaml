@@ -10,7 +10,7 @@ model:
     n_layers: 50
 
 data:
-  root_dir: '/media/hayden/CASR_ACVT/data/filtered/'
+  root_dir: 'data/filtered/'
   name: 'cycle'
   split_id: '001'
 

@@ -30,6 +30,8 @@ def parse_args():
 
 
 def mx_train(cfg_path):
+    assert os.getcwd()[-16:] == 'BicycleDetection'
+
     # load the config file
     cfg = load_config(cfg_path)
 
@@ -85,7 +87,9 @@ def mx_train(cfg_path):
             net.initialize()
 
     # load the dataset splits
-    train_dataset, val_dataset, test_dataset = load_datasets(cfg.data.root_dir, cfg.data.split_id, cfg.classes,
+    # train_dataset, val_dataset, test_dataset = load_datasets(os.path.join(os.getcwd(), cfg.data.root_dir),
+    train_dataset, val_dataset, test_dataset = load_datasets(cfg.data.root_dir,
+                                                             cfg.data.split_id, cfg.classes,
                                                              percent=.01)  # .01
 
     print(train_dataset.statistics())
