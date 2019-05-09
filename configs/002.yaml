@@ -6,7 +6,7 @@ model:
   pretrained_on: 'custom'
 
   backbone:
-    type: 'resnet50_v1' #'mobilenet1.0'
+    type: 'resnet50_v1b' #'mobilenet1.0'
     n_layers: 50
 
 data:

@@ -9,7 +9,7 @@ from visualisation.image import pil_plot_bbox
 CWD = os.getcwd()
 
 
-def transform_test(imgs, short, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+def transform_test(imgs, short=600, max_size=1000, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
     """A util function to transform all images to tensors as network input by applying
     normalizations. This function support 1 NDArray or iterable of NDArrays. This is similar to:
 
@@ -48,7 +48,8 @@ def transform_test(imgs, short, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0
     origs = []
     for img in imgs:
         orig_img = img.asnumpy().astype('uint8')
-        img = timage.imresize(img, short, short, interp=9)
+        # img = timage.imresize(img, short, max_size, interp=9)
+        img = timage.resize_short_within(img, short, max_size)
         img = mx.nd.image.to_tensor(img)
         img = mx.nd.image.normalize(img, mean=mean, std=std)
         tensors.append(img.expand_dims(0))
@@ -58,7 +59,7 @@ def transform_test(imgs, short, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0
     return tensors, origs
 
 
-def evaluate(net, dataset, ctx, eval_metric, vis=5):
+def evaluate(net, dataset, ctx, eval_metric, vis=50):
     """Test on validation dataset."""
     eval_metric.reset()
     # set nms threshold and topk constraint
@@ -68,7 +69,7 @@ def evaluate(net, dataset, ctx, eval_metric, vis=5):
         if len(y) < 1:  # todo remove such samples from set?
             continue
 
-        x, image = transform_test(x, 512)
+        x, image = transform_test(x, 512, max_size=1024)  # todo max_size=512?
         x = x.copyto(ctx[0])
 
         # get prediction results
@@ -90,8 +91,7 @@ def evaluate(net, dataset, ctx, eval_metric, vis=5):
                           thresh=0.5,
                           class_names=net.classes)
         # update metric
-        eval_metric.update([bboxes.clip(0, x.shape[2])], [ids], [scores],
-                           gt_bboxes, gt_ids, gt_difficults)
+        eval_metric.update([bboxes.clip(0, x.shape[2])], [ids], [scores], gt_bboxes, gt_ids, gt_difficults)
     return eval_metric.get()
 
 

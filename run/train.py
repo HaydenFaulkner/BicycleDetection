@@ -6,9 +6,11 @@ run.mx.py contains wrapper code for training, will run mxnet trainer, will also 
 import argparse
 import logging
 import os
+import warnings
 
 from gluoncv import utils as gutils
 from gluoncv.model_zoo import get_model
+from gluoncv.utils.metrics.voc_detection import VOCMApMetric
 import mxnet as mx
 
 from config.functions import load_config
@@ -84,7 +86,7 @@ def mx_train(cfg_path):
 
     # load the dataset splits
     train_dataset, val_dataset, test_dataset = load_datasets(cfg.data.root_dir, cfg.data.split_id, cfg.classes,
-                                                             percent=.1)  # .01
+                                                             percent=.01)  # .01
 
     print(train_dataset.statistics())
     print(val_dataset.statistics())

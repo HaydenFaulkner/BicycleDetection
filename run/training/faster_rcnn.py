@@ -13,6 +13,10 @@ from gluoncv.data.transforms.presets.rcnn import FasterRCNNDefaultTrainTransform
 from gluoncv.data.transforms.presets.rcnn import FasterRCNNDefaultValTransform
 from tensorboardX import SummaryWriter
 
+from run.evaluation.mx import transform_test
+from gluoncv.data.transforms import bbox as tbbox
+from visualisation.image import pil_plot_bbox
+
 
 class RPNAccMetric(mx.metric.EvalMetric):
     def __init__(self):
@@ -141,6 +145,8 @@ def validate(net, val_data, ctx, eval_metric):
     net.hybridize(static_alloc=True)
     for batch in val_data:
         batch = split_and_load(batch, ctx_list=ctx)
+        if len(batch[1]) < 1:
+            continue
         det_bboxes = []
         det_ids = []
         det_scores = []
@@ -168,39 +174,41 @@ def validate(net, val_data, ctx, eval_metric):
             eval_metric.update(det_bbox, det_id, det_score, gt_bbox, gt_id, gt_diff)
     return eval_metric.get()
 
-# def evaluate(net, val_data, ctx, eval_metric):
-#     """Test on validation dataset."""
-#     clipper = gcv.nn.bbox.BBoxClipToImage()
-#     eval_metric.reset()
-#     net.hybridize(static_alloc=True)
-#     for batch in val_data:
-#         batch = split_and_load(batch, ctx_list=ctx)
-#         det_bboxes = []
-#         det_ids = []
-#         det_scores = []
-#         gt_bboxes = []
-#         gt_ids = []
-#         gt_difficults = []
-#         for x, y, im_scale in zip(*batch):
-#             # get prediction results
-#             ids, scores, bboxes = net(x)
-#             det_ids.append(ids)
-#             det_scores.append(scores)
-#             # clip to image size
-#             det_bboxes.append(clipper(bboxes, x))
-#             # rescale to original resolution
-#             im_scale = im_scale.reshape((-1)).asscalar()
-#             det_bboxes[-1] *= im_scale
-#             # split ground truths
-#             gt_ids.append(y.slice_axis(axis=-1, begin=4, end=5))
-#             gt_bboxes.append(y.slice_axis(axis=-1, begin=0, end=4))
-#             gt_bboxes[-1] *= im_scale
-#             gt_difficults.append(y.slice_axis(axis=-1, begin=5, end=6) if y.shape[-1] > 5 else None)
-#
-#         # update metric
-#         for det_bbox, det_id, det_score, gt_bbox, gt_id, gt_diff in zip(det_bboxes, det_ids, det_scores, gt_bboxes, gt_ids, gt_difficults):
-#             eval_metric.update(det_bbox, det_id, det_score, gt_bbox, gt_id, gt_diff)
-#     return eval_metric.get()
+def evaluate(net, dataset, ctx, eval_metric, vis=50):
+    """Test on validation dataset."""
+    clipper = gcv.nn.bbox.BBoxClipToImage()
+    eval_metric.reset()
+    net.hybridize(static_alloc=True)
+    for x, y in dataset:  # gets a single sample
+        if len(y) < 1:
+            continue
+
+        x, image = transform_test(x, 600, max_size=1000)
+        x = x.copyto(ctx[0])
+
+        # get prediction results
+        ids, scores, bboxes = net(x)
+
+        gt_ids = mx.nd.array([[[yi[4]] for yi in y]])
+        gt_bboxes= mx.nd.array([[[yii for yii in yi[:4]] for yi in y]])
+        gt_difficults = [[yi[5]] if len(yi) > 5 else [None] for yi in y]  # put None in list to prevent cat error in voc_detection.py
+
+        oh, ow, _ = image.shape
+        _, _, ih, iw = x.shape
+        bboxes[0] = tbbox.resize(bboxes[0], in_size=(iw, ih), out_size=(ow, oh))
+        if vis > 0:
+            vis -= 1
+            pil_plot_bbox(out_path="/media/hayden/UStorage/CODE/BicycleDetection/models/vis_frcnn/test_%03d.png" % vis,
+                          img=image,
+                          bboxes=bboxes[0].asnumpy(),
+                          scores=scores[0].asnumpy(),
+                          labels=ids[0].asnumpy(),
+                          thresh=0.5,
+                          class_names=net.classes)
+
+        # update metric
+        eval_metric.update([clipper(bboxes, x)], [ids], [scores], gt_bboxes, gt_ids, gt_difficults)
+    return eval_metric.get()
 
 def get_lr_at_iter(alpha):
     return 1. / 3. * (1 - alpha) + alpha
@@ -219,6 +227,7 @@ def train(net, train_dataset, val_dataset, eval_metric, ctx, logger, start_epoch
                                     split='val', data_shape=cfg.data.shape,
                                     batch_size=cfg.train.batch_size, num_workers=cfg.num_workers)
 
+    net.collect_params().reset_ctx(ctx)
     net.collect_params().setattr('grad_req', 'null')
     net.collect_train_params().setattr('grad_req', 'write')
     trainer = gluon.Trainer(
@@ -342,7 +351,7 @@ def train(net, train_dataset, val_dataset, eval_metric, ctx, logger, start_epoch
             epoch, (time.time()-tic), msg))
         if (epoch % cfg.train.val_every == 0) or (cfg.train.checkpoint_every and epoch % cfg.train.checkpoint_every == 0):
             # consider reduce the frequency of validation to save time
-            map_name, mean_ap = validate(net, val_dataloader, ctx, eval_metric)
+            map_name, mean_ap = evaluate(net, val_dataset, ctx, eval_metric)
             val_msg = '\n'.join(['{}={}'.format(k, v) for k, v in zip(map_name, mean_ap)])
             logger.info('[Epoch {}] Validation: \n{}'.format(epoch, val_msg))
             current_map = float(mean_ap[-1])
