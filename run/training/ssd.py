@@ -1,5 +1,5 @@
 """
-Train script for mxnet object detection pipeline
+Training script for mxnet ssd object detection pipeline
 """
 
 import os
@@ -14,10 +14,8 @@ from gluoncv.data.transforms.presets.ssd import SSDDefaultValTransform
 import gluoncv as gcv
 from tensorboardX import SummaryWriter
 
-from run.evaluation.mx import evaluate
-from visualisation.image import pil_plot_bbox
-
-CWD = os.getcwd()
+from run.evaluation.ssd import evaluate
+from run.training.common import save_params
 
 sys.setrecursionlimit(10000)   # set recursion limit to 10000
 
@@ -42,37 +40,12 @@ def get_dataloader(net, dataset, split, data_shape, batch_size, num_workers):
         return None
 
 
-def save_params(net, logger, best_map, current_map, epoch, save_interval, prefix):
-    current_map = float(current_map)
-    if current_map > best_map[0]:
-        logger.info('[Epoch {}] mAP {} higher than current best {} saving to {}'.format(
-                    epoch, current_map, best_map, '{:s}/best.params'.format(prefix)))
-        best_map[0] = current_map
-        net.save_parameters('{:s}/best.params'.format(prefix))
-        with open(prefix+'_best_map.log', 'a') as f:
-            f.write('{:04d}:\t{:.4f}\n'.format(epoch, current_map))
-    if save_interval and (epoch + 1) % save_interval == 0:
-        logger.info('[Epoch {}] Saving parameters to {}'.format(
-            epoch, '{:s}/{:04d}_{:.4f}.params'.format(prefix, epoch, current_map)))
-        net.save_parameters('{:s}/{:04d}_{:.4f}.params'.format(prefix, epoch, current_map))
-
-
 def train(net, train_dataset, val_dataset, eval_metric, ctx, logger, start_epoch, cfg, save_path):
     """Training pipeline"""
 
     tb_sw = SummaryWriter(
         log_dir=os.path.join(save_path, 'tb'),
         comment=cfg.run_id)
-
-    # for s in train_dataset:
-    #     labels = [bb[4] for bb in s[1]]
-    #     bboxes = [bb[:4] for bb in s[1]]
-    #     pil_plot_bbox(s[0].asnumpy(), bboxes,
-    #                   out_path="/media/hayden/UStorage/CODE/BicycleDetection/models/001_ssd_512_cycle/%03d.png" % 101,
-    #                   scores=None, labels=labels, thresh=0.5, class_names=['cyclist'], colors=None,
-    #                   absolute_coordinates=True)
-    #     break
-    # return
 
     # dataloader
     train_dataloader = get_dataloader(net, train_dataset,
@@ -156,6 +129,6 @@ def train(net, train_dataset, val_dataset, eval_metric, ctx, logger, start_epoch
             tb_sw.add_scalar(tag='mAP', scalar_value=current_map, global_step=global_step)
         else:
             current_map = 0.
-        # save_params(net, logger, best_map, current_map, epoch, cfg.checkpoint_every, save_path)
+        save_params(net, logger, best_map, current_map, epoch, cfg.checkpoint_every, save_path)
 
     return logger
