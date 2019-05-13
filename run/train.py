@@ -90,7 +90,7 @@ def mx_train(cfg_path):
     # train_dataset, val_dataset, test_dataset = load_datasets(os.path.join(os.getcwd(), cfg.data.root_dir),
     train_dataset, val_dataset, test_dataset = load_datasets(cfg.data.root_dir,
                                                              cfg.data.split_id, cfg.classes,
-                                                             percent=.01)  # .01
+                                                             percent=.1)  # .01
 
     print(train_dataset.statistics())
     print(val_dataset.statistics())

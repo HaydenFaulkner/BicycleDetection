@@ -21,7 +21,7 @@ def organise_data():
     root = os.path.dirname(os.path.abspath(__file__))
     root = root[:root.rfind('BicycleDetection')+len('BicycleDetection')+1]
     root = os.path.join(root, 'data')
-    root = '/media/hayden/CASR_ACVT/' ##################################################### TODO REMOVE BEFORE HANDOVER
+    root = '/media/hayden/CASR_ACVT/data' ##################################################### TODO REMOVE BEFORE HANDOVER
     print("Find and copy all the annotation files")
     os.makedirs(os.path.join(root, 'filtered', 'annotations'))
     cmd = "find " + root + "/unfiltered/. -name \*.saa -exec cp -v {} " + root + "/filtered/annotations/ \;"
