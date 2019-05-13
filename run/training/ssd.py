@@ -122,7 +122,7 @@ def train(net, train_dataset, val_dataset, eval_metric, ctx, logger, start_epoch
             epoch, (time.time()-tic), name1, loss1, name2, loss2))
         if (epoch % cfg.train.val_every == 0) or (cfg.train.checkpoint_every and epoch % cfg.train.checkpoint_every == 0):
             # consider reduce the frequency of validation to save time
-            map_name, mean_ap = evaluate(net, val_dataset, ctx, eval_metric, vis=100, vis_path=save_path)
+            map_name, mean_ap = evaluate(net, val_dataset, ctx, eval_metric, vis=100, vis_path=os.path.join(save_path, "val_vis"))
             val_msg = '\n'.join(['{}={}'.format(k, v) for k, v in zip(map_name, mean_ap)])
             logger.info('[Epoch {}] Validation: \n{}'.format(epoch, val_msg))
             current_map = float(mean_ap[-1])
