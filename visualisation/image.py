@@ -1,3 +1,4 @@
+import cv2
 import os
 import random
 from tqdm import tqdm
@@ -62,6 +63,56 @@ def pil_plot_bbox(img, bboxes, out_path=None,
     img = Image.alpha_composite(img, overlay)
     if out_path:
         img.save(out_path, "png")
+    return img
+
+
+def cv_plot_bbox(img, bboxes, out_path=None,
+                  scores=None, labels=None, thresh=0.5, class_names=None, colors=None, absolute_coordinates=True):
+    """
+    plot bounding boxes on an image and
+    """
+
+    if len(bboxes) < 1:
+        if out_path:
+            cv2.imwrite(out_path, img)
+        return img
+
+    if not absolute_coordinates:
+        # convert to absolute coordinates using image shape
+        height = img.shape[0]
+        width = img.shape[1]
+        bboxes[:, (0, 2)] *= width
+        bboxes[:, (1, 3)] *= height
+
+    if colors is None:
+        colors = dict()
+    for i, bbox in enumerate(bboxes):
+        if scores is not None and scores[i] < thresh:
+            continue
+        if labels is not None and labels[i] < 0:
+            continue
+
+        cls_id = int(labels[i]) if labels is not None else -1
+        if cls_id not in colors:
+            colors[cls_id] = (int(256*random.random()), int(256*random.random()), int(256*random.random()))
+
+        xmin, ymin, xmax, ymax = [int(x) for x in bbox]
+
+        cv2.rectangle(img, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
+
+        # if class_names is not None and cls_id < len(class_names):
+        #     class_name = class_names[cls_id]
+        # else:
+        #     class_name = str(cls_id) if cls_id >= 0 else ''
+        #
+        # score = '{:.3f}'.format(float(scores[i])) if scores is not None else ''
+        #
+        # if class_name or score:
+        #
+        #     draw.text((xmin, ymin - 2), '{:s} {:s}'.format(class_name, score), fill=(255, 0, 0, 255))
+
+    if out_path:
+        cv2.imwrite(out_path, img)
     return img
 
 
