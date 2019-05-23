@@ -39,7 +39,7 @@ def evaluate(net, dataset, ctx, eval_metric, vis=50, vis_path=None):
         bboxes[0] = tbbox.resize(bboxes[0], in_size=(iw, ih), out_size=(ow, oh))
         if vis > 0:
             vis -= 1
-            pil_plot_bbox(out_path=os.path.join(vis_path, "%03d.png" % (vis_org-vis)),
+            pil_plot_bbox(out_path=os.path.join(vis_path, "%05d.png" % (vis_org-vis)),
                           img=image,
                           bboxes=bboxes[0].asnumpy(),
                           scores=scores[0].asnumpy(),
