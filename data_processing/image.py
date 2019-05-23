@@ -187,4 +187,9 @@ def imgs_to_vid(frames_dir, ext='.mp4', fps=25, repeat=1, delete_frames_dir=True
 
 
 if __name__ == '__main__':
-    imgs_to_vid("/media/hayden/UStorage/CODE/BicycleDetection/models/ssd_512_resnet50_v1_voc", ext='.mp4', fps=25, repeat=10, delete_frames_dir=False)
+    pth = '/media/hayden/UStorage/CODE/BicycleDetection/models/002_faster_rcnn_resnet50_v1b_custom_cycle/test_vis'
+    files = os.listdir(pth)
+    for file in files:
+        if len(file) == 7:
+            os.rename(pth+'/'+file, pth+'/0'+file)
+    imgs_to_vid("/media/hayden/UStorage/CODE/BicycleDetection/models/002_faster_rcnn_resnet50_v1b_custom_cycle/test_vis", ext='.mp4', fps=25, repeat=3, delete_frames_dir=False)
