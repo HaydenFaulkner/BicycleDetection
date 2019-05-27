@@ -25,14 +25,16 @@ def parse_args():
                         help="Directory path")
     parser.add_argument('--model', type=str, default="models/002_faster_rcnn_resnet50_v1b_custom_cycle/best.params",
                         help="Model path")
-    parser.add_argument('--fps', type=float, default=1.0,
-                        help="How many frames to sample per second. Default is 1.")
+    parser.add_argument('--every', type=int, default=25,
+                        help="Detect every this many frames. Default is 25.")
     parser.add_argument('--boxes', type=bool, default=True,
                         help="Display bounding boxes on the processed frames.")
     parser.add_argument('--gpus', type=str, default="0",
                         help="GPU ids to use, defaults to '0', if want CPU set to ''. Use comma for multiple eg. '0,1'.")
     parser.add_argument('--buffer', type=int, default=25,
                         help="How many frames to buffer around cyclists. Default is 25.")
+    parser.add_argument('--separate', type=int, default=0,
+                        help="0: only make single summary clip; 1: make both summary and sub clips; 2: make only sub clips. Default is 0.")
     # parser.add_argument('--backend', type=str, default="mx",
     #                     help="The backend to use: mxnet (mx) or tensorflow (tf). Currently only supports mxnet.")
 
@@ -69,7 +71,7 @@ def process_frame(image, net, ctx):
     return bboxes[0].asnumpy(), scores[0].asnumpy(), ids[0].asnumpy()
 
 
-def clip_video(video_dir, clip_dir, video_file, net, ctx, fps=1.0, buffer=25, boxes=False):
+def clip_video(video_dir, clip_dir, video_file, net, ctx, every=25, buffer=25, boxes=False, separate=0):
     video_path = os.path.join(video_dir, video_file)
     # Check the video exists
     if not os.path.exists(video_path):
@@ -81,7 +83,6 @@ def clip_video(video_dir, clip_dir, video_file, net, ctx, fps=1.0, buffer=25, bo
 
     # Get the total number of frames
     total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
-
     # Might be a problem if video has no frames
     if total < 1:
         print("Check your opencv + ffmpeg installation, can't read videos!!!\n"
@@ -91,20 +92,29 @@ def clip_video(video_dir, clip_dir, video_file, net, ctx, fps=1.0, buffer=25, bo
     # if ext == '.mp4':
     clip_count = 0
 
-    skip = int(25*fps)  # assuming vids are 25 fps
-    buffer = max(buffer, skip) # ensure the buffer encompasses the window of checking
+    buffer = max(buffer, every) # ensure the buffer encompasses the window of checking
     current = 0
     buf = queue.Queue(maxsize=buffer)
     writing = False
     last_found = 0
     out = 0
+    clip = None
+    summary_clip = None
     while True:
+        if current % int(total*.1) == 0:
+            print("%d%% (%d/%d)" % (int(100*current/total)+1, current, total))
+
         flag, frame = capture.read()
-        if flag == 0:
+        if flag == 0 and current < total-2:
+            print("frame %d error flag" % current)
+            current += 1
+            continue
+            #break
+        if frame is None:
             break
         height, width, _ = frame.shape
 
-        if current % skip == 0:
+        if current % every == 0:
             bboxes, scores, ids = process_frame(image=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), net=net, ctx=ctx)
 
             if scores[0] > 0.5:  # we found a box
@@ -119,29 +129,43 @@ def clip_video(video_dir, clip_dir, video_file, net, ctx, fps=1.0, buffer=25, bo
                                           class_names=['cyclist'])
                 # found a new clip
                 if not writing:
-                    # start the clip
-                    clip = cv2.VideoWriter("%s_%05d.mp4" % (os.path.join(clip_dir, video_file[:-4]), clip_count+1),
+                    if summary_clip is None and separate < 2:
+                        summary_clip = cv2.VideoWriter("0_%s_summary.mp4" % os.path.join(clip_dir, video_file[:-4]),
                                            cv2.VideoWriter_fourcc('F', 'M', 'P', '4'), 25, (width, height))
+                    
+                    # start the clip
+                    if separate > 0:
+                        clip = cv2.VideoWriter("%s_%05d.mp4" % (os.path.join(clip_dir, video_file[:-4]), clip_count+1),
+                                               cv2.VideoWriter_fourcc('F', 'M', 'P', '4'), 25, (width, height))
                     # clip = cv2.VideoWriter("%s_%05d.avi" % (os.path.join(clip_dir, video_file[:-4]), clip_count+1),
                     #                        cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'), 25, (width, height))
 
                     # write out the buffer frames pre finding box
                     while not buf.empty():
-                        clip.write(buf.get())
+                        buf_img = buf.get()
+                        if separate > 0:
+                            clip.write(buf_img)
+                        if separate < 2:
+                            summary_clip.write(buf_img)
+                        
                         out += 1
 
                     writing = True
 
         if writing:
             # write out current frame
-            clip.write(frame)
+            if separate > 0:
+                clip.write(frame)
+            if separate < 2:
+                summary_clip.write(frame)
             out += 1
 
             # if we haven't found one within the buffer stop writing and close clip
             if current - last_found > buffer:
                 writing = False
                 clip_count += 1
-                clip.release()
+                if clip is not None:
+                    clip.release()
 
         else:
             # put into buffer
@@ -151,11 +175,17 @@ def clip_video(video_dir, clip_dir, video_file, net, ctx, fps=1.0, buffer=25, bo
 
         current += 1
 
-    clip.release()
+    if clip is not None:
+        clip.release()
+    if summary_clip is not None:
+        summary_clip.release()
+        
+    if clip_count < 1:
+        print("No Cyclists detected")
     return [out, total]
 
 
-def subclipper(video_dir, model_path, fps=1.0, gpus='', buffer=25, boxes=False):
+def subclipper(video_dir, model_path, every=25, gpus='', buffer=25, boxes=False, separate=0):
     # Ensure we are in the BicycleDetection working directory
     if not os.getcwd()[-16:] == 'BicycleDetection':
         print("ERROR: Please ensure 'BicycleDetection' is the working directory")
@@ -183,7 +213,7 @@ def subclipper(video_dir, model_path, fps=1.0, gpus='', buffer=25, boxes=False):
         t = time.time()
         if video_file[-4:] != '.mp4':
             continue
-        out, total = clip_video(video_dir=os.path.join(video_dir, 'unprocessed'), clip_dir=clip_dir, video_file=video_file, net=net, ctx=ctx, fps=fps, buffer=buffer, boxes=boxes)
+        out, total = clip_video(video_dir=os.path.join(video_dir, 'unprocessed'), clip_dir=clip_dir, video_file=video_file, net=net, ctx=ctx, every=every, buffer=buffer, boxes=boxes, separate=separate)
 
 
         # move video to processed dir
@@ -191,22 +221,22 @@ def subclipper(video_dir, model_path, fps=1.0, gpus='', buffer=25, boxes=False):
             total_vids_done += 1
             out_total += out
             total_total += total
-            os.rename(os.path.join(video_dir, 'unprocessed', video_file), os.path.join(video_dir, 'processed', video_file))
+            #os.rename(os.path.join(video_dir, 'unprocessed', video_file), os.path.join(video_dir, 'processed', video_file))
 
         print("Processing Video %d of %d Complete (%s). Cut out %d minutes (%0.2f%%). Took %d minutes." % (i+1,
                                                                                                           total_vids,
                                                                                                           video_file,
                                                                                                           int(out/25.0/60.0),
-                                                                                                          100-(100*out/total),
+                                                                                                          100-(100*out/total+.001),
                                                                                                           int((time.time() - t)/60.0)))
 
     print("Processed %d of %d Videos. Cut out %d minutes (%0.2f%%). Took %d minutes." % (total_vids_done,
                                                                                          total_vids,
                                                                                          int(out_total/25.0/60.0),
-                                                                                         100-(100*out_total/total_total),
+                                                                                         100-(100*out_total/(total_total+.001)),
                                                                                          int((time.time() - start_time)/60.0)))
 
 if __name__ == '__main__':
 
     args = parse_args()
-    subclipper(video_dir=args.dir, model_path=args.model, fps=args.fps, gpus=args.gpus, buffer=args.buffer, boxes=args.boxes)
+    subclipper(video_dir=args.dir, model_path=args.model, every=args.every, gpus=args.gpus, buffer=args.buffer, boxes=args.boxes, separate=args.separate)
