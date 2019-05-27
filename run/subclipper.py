@@ -35,6 +35,9 @@ def parse_args():
                         help="How many frames to buffer around cyclists. Default is 25.")
     parser.add_argument('--separate', type=int, default=0,
                         help="0: only make single summary clip; 1: make both summary and sub clips; 2: make only sub clips. Default is 0.")
+    parser.add_argument('--threshold', type=float, default=0.5,
+                        help="Threshold on detection confidence. Default is 0.5")
+
     # parser.add_argument('--backend', type=str, default="mx",
     #                     help="The backend to use: mxnet (mx) or tensorflow (tf). Currently only supports mxnet.")
 
@@ -71,7 +74,7 @@ def process_frame(image, net, ctx):
     return bboxes[0].asnumpy(), scores[0].asnumpy(), ids[0].asnumpy()
 
 
-def clip_video(video_dir, clip_dir, video_file, net, ctx, every=25, buffer=25, boxes=False, separate=0):
+def clip_video(video_dir, clip_dir, video_file, net, ctx, every=25, buffer=25, boxes=False, separate=0, threshold=0.5):
     video_path = os.path.join(video_dir, video_file)
     # Check the video exists
     if not os.path.exists(video_path):
@@ -117,7 +120,7 @@ def clip_video(video_dir, clip_dir, video_file, net, ctx, every=25, buffer=25, b
         if current % every == 0:
             bboxes, scores, ids = process_frame(image=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), net=net, ctx=ctx)
 
-            if scores[0] > 0.5:  # we found a box
+            if scores[0] > threshold:  # we found a box
                 last_found = current
                 if boxes:
                     frame = cv_plot_bbox(out_path=None,
@@ -125,7 +128,7 @@ def clip_video(video_dir, clip_dir, video_file, net, ctx, every=25, buffer=25, b
                                           bboxes=bboxes,
                                           scores=scores,
                                           labels=ids,
-                                          thresh=0.5,
+                                          thresh=threshold,
                                           class_names=['cyclist'])
                 # found a new clip
                 if not writing:
@@ -185,7 +188,7 @@ def clip_video(video_dir, clip_dir, video_file, net, ctx, every=25, buffer=25, b
     return [out, total]
 
 
-def subclipper(video_dir, model_path, every=25, gpus='', buffer=25, boxes=False, separate=0):
+def subclipper(video_dir, model_path, every=25, gpus='', buffer=25, boxes=False, separate=0, threshold=0.5):
     # Ensure we are in the BicycleDetection working directory
     if not os.getcwd()[-16:] == 'BicycleDetection':
         print("ERROR: Please ensure 'BicycleDetection' is the working directory")
@@ -213,15 +216,19 @@ def subclipper(video_dir, model_path, every=25, gpus='', buffer=25, boxes=False,
         t = time.time()
         if video_file[-4:] != '.mp4':
             continue
-        out, total = clip_video(video_dir=os.path.join(video_dir, 'unprocessed'), clip_dir=clip_dir, video_file=video_file, net=net, ctx=ctx, every=every, buffer=buffer, boxes=boxes, separate=separate)
+        out, total = clip_video(video_dir=os.path.join(video_dir, 'unprocessed'),
+                                clip_dir=clip_dir, video_file=video_file, net=net, ctx=ctx, every=every, buffer=buffer,
+                                boxes=boxes, separate=separate, threshold=threshold)
 
 
         # move video to processed dir
-        if out is not None:
+        if out > 0:
             total_vids_done += 1
             out_total += out
             total_total += total
-            #os.rename(os.path.join(video_dir, 'unprocessed', video_file), os.path.join(video_dir, 'processed', video_file))
+            os.rename(os.path.join(video_dir, 'unprocessed', video_file), os.path.join(video_dir, 'processed', video_file))
+        else:
+            print("No detections found in video, consider lowering the threshold.")
 
         print("Processing Video %d of %d Complete (%s). Cut out %d minutes (%0.2f%%). Took %d minutes." % (i+1,
                                                                                                           total_vids,
@@ -239,4 +246,11 @@ def subclipper(video_dir, model_path, every=25, gpus='', buffer=25, boxes=False,
 if __name__ == '__main__':
 
     args = parse_args()
-    subclipper(video_dir=args.dir, model_path=args.model, every=args.every, gpus=args.gpus, buffer=args.buffer, boxes=args.boxes, separate=args.separate)
+    subclipper(video_dir=args.dir,
+               model_path=args.model,
+               every=args.every,
+               gpus=args.gpus,
+               buffer=args.buffer,
+               boxes=args.boxes,
+               separate=args.separate,
+               threshold=args.threshold)
