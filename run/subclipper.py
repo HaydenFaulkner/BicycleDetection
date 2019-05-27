@@ -227,7 +227,7 @@ def subclipper(video_dir, model_path, every=25, gpus='', buffer=25, boxes=False,
                                                                                                           total_vids,
                                                                                                           video_file,
                                                                                                           int(out/25.0/60.0),
-                                                                                                          100-(100*out/total+.001),
+                                                                                                          100-(100*out/(total+.001)),
                                                                                                           int((time.time() - t)/60.0)))
 
     print("Processed %d of %d Videos. Cut out %d minutes (%0.2f%%). Took %d minutes." % (total_vids_done,
