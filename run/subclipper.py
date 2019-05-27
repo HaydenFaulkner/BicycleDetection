@@ -133,11 +133,13 @@ def clip_video(video_dir, clip_dir, video_file, net, ctx, every=25, buffer=25, b
                 # found a new clip
                 if not writing:
                     if summary_clip is None and separate < 2:
-                        summary_clip = cv2.VideoWriter("0_%s_summary.mp4" % os.path.join(clip_dir, video_file[:-4]),
+                        print("Making Summary Clip: %s_summary.mp4" % os.path.join(clip_dir, video_file[:-4]))
+                        summary_clip = cv2.VideoWriter("%s_summary.mp4" % os.path.join(clip_dir, video_file[:-4]),
                                            cv2.VideoWriter_fourcc('F', 'M', 'P', '4'), 25, (width, height))
-                    
+
                     # start the clip
                     if separate > 0:
+                        print("Making Subclip: %s_%05d.mp4" % (os.path.join(clip_dir, video_file[:-4]), clip_count+1))
                         clip = cv2.VideoWriter("%s_%05d.mp4" % (os.path.join(clip_dir, video_file[:-4]), clip_count+1),
                                                cv2.VideoWriter_fourcc('F', 'M', 'P', '4'), 25, (width, height))
                     # clip = cv2.VideoWriter("%s_%05d.avi" % (os.path.join(clip_dir, video_file[:-4]), clip_count+1),
@@ -150,7 +152,7 @@ def clip_video(video_dir, clip_dir, video_file, net, ctx, every=25, buffer=25, b
                             clip.write(buf_img)
                         if separate < 2:
                             summary_clip.write(buf_img)
-                        
+
                         out += 1
 
                     writing = True
@@ -182,13 +184,14 @@ def clip_video(video_dir, clip_dir, video_file, net, ctx, every=25, buffer=25, b
         clip.release()
     if summary_clip is not None:
         summary_clip.release()
-        
+
     if clip_count < 1:
         print("No Cyclists detected")
     return [out, total]
 
 
 def subclipper(video_dir, model_path, every=25, gpus='', buffer=25, boxes=False, separate=0, threshold=0.5):
+    file_types = ['.mp4', '.MP4', '.avi', '.AVI', '.mov', '.MOV']
     # Ensure we are in the BicycleDetection working directory
     if not os.getcwd()[-16:] == 'BicycleDetection':
         print("ERROR: Please ensure 'BicycleDetection' is the working directory")
@@ -210,13 +213,14 @@ def subclipper(video_dir, model_path, every=25, gpus='', buffer=25, boxes=False,
     total_total = 0
     start_time = time.time()
     total_vids_done = 0
-    vids = os.listdir(os.path.join(video_dir, 'unprocessed'))
+    vids = os.listdir(os.path.join(video_dir, 'unprocessed', gpus))
     total_vids = len(vids)
     for i, video_file in enumerate(vids):
         t = time.time()
-        if video_file[-4:] != '.mp4':
+        if video_file[-4:] not in file_types:
+            print('File type %s not supported' % video_file[-4:])
             continue
-        out, total = clip_video(video_dir=os.path.join(video_dir, 'unprocessed'),
+        out, total = clip_video(video_dir=os.path.join(video_dir, 'unprocessed', gpus),
                                 clip_dir=clip_dir, video_file=video_file, net=net, ctx=ctx, every=every, buffer=buffer,
                                 boxes=boxes, separate=separate, threshold=threshold)
 
@@ -226,7 +230,7 @@ def subclipper(video_dir, model_path, every=25, gpus='', buffer=25, boxes=False,
             total_vids_done += 1
             out_total += out
             total_total += total
-            os.rename(os.path.join(video_dir, 'unprocessed', video_file), os.path.join(video_dir, 'processed', video_file))
+            os.rename(os.path.join(video_dir, 'unprocessed', gpus, video_file), os.path.join(video_dir, 'processed', video_file))
         else:
             print("No detections found in video, consider lowering the threshold.")
 
