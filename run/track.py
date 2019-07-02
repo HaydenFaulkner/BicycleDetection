@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument('--model', type=str, default="models/002_faster_rcnn_resnet50_v1b_custom_cycle/best.params",
                         help="Model path")
     parser.add_argument('--every', type=int, default=5,
-                        help="Detect every this many frames. Default is 25.")
+                        help="Detect every this many frames. Default is 5.")
     parser.add_argument('--boxes', type=bool, default=True,
                         help="Display bounding boxes on the processed frames.")
     parser.add_argument('--gpus', type=str, default="0",
@@ -48,6 +48,10 @@ def parse_args():
                         help="Save out a single image for each track.")
     parser.add_argument('--vid_snapshots', type=bool, default=True,
                         help="Save out individual clips for each track.")
+    parser.add_argument('--max_age', type=int, default=100,
+                        help="Maximum age of a missing track before it is terminated. Default is 100 frames.")
+    parser.add_argument('--min_hits', type=int, default=1,
+                        help="Minimum number of detection / track matches before track displayed. Default is 1.")
 
     # parser.add_argument('--backend', type=str, default="mx",
     #                     help="The backend to use: mxnet (mx) or tensorflow (tf). Currently only supports mxnet.")
@@ -112,8 +116,12 @@ def associate_detections_to_tracks(detections, tracks, iou_threshold=0.1):
     for d, det in enumerate(detections):
         for t, trk in enumerate(tracks):
             iou_matrix[d, t] = iou(det, trk)
-    matched_indices = linear_assignment(-iou_matrix)
-    # matched_indices = linear_sum_assignment(-iou_matrix)
+
+    try:
+        # matched_indices = linear_assignment(-iou_matrix)
+        matched_indices = np.swapaxes(np.array(linear_sum_assignment(-iou_matrix)), 0, 1)
+    except DeprecationWarning:
+        pass
 
     unmatched_detections = []
     for d, det in enumerate(detections):
@@ -445,7 +453,7 @@ def track(video_dir, out_dir, video_file, net, tracker, ctx, every=25, boxes=Fal
     current = 0
     track_trails = queue.Queue(maxsize=50)
     colors = {}
-
+    KalmanBoxTracker.count = 0
     while True:
         if current % int(total*.1) == 0:
             print("%d%% (%d/%d)" % (int(100*current/total)+1, current, total))
@@ -462,12 +470,13 @@ def track(video_dir, out_dir, video_file, net, tracker, ctx, every=25, boxes=Fal
 
         if current < 1:
             full_out_video = cv2.VideoWriter("%s_tracked.mp4" % os.path.join(out_dir, video_file[:-4]),
-                                       cv2.VideoWriter_fourcc('F', 'M', 'P', '4'), 25, (width, height))
+                                       cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), 25, (width, height))
 
         tbboxes = []
         tids = []
         dets = []
         det = False
+        out_frame = frame.copy()
         if current % every == 0:
             det = True
             bboxes, scores, ids = process_frame(image=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), net=net, ctx=ctx)
@@ -477,7 +486,6 @@ def track(video_dir, out_dir, video_file, net, tracker, ctx, every=25, boxes=Fal
                     # boxes xmin,ymin,xmax,ymax
                     dets.append(box)
 
-            out_frame = frame.copy()
             if boxes:
                 out_frame = cv_plot_bbox(out_path=None,
                                          img=out_frame,
@@ -514,7 +522,7 @@ def track(video_dir, out_dir, video_file, net, tracker, ctx, every=25, boxes=Fal
                 # open a new clip for this track
                 if tid not in vid_track_snapshots:
                     vid_track_snapshots[tid] = cv2.VideoWriter("%s_%d.mp4" % (os.path.join(snapshot_clips_dir, video_file[:-4]), tid),
-                                                               cv2.VideoWriter_fourcc('F', 'M', 'P', '4'), 25, (width, height))
+                                                               cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), 25, (width, height))
 
                 # if the track wasn't found it has died, close it's associated clip
                 del_tids = []
@@ -579,7 +587,6 @@ def track(video_dir, out_dir, video_file, net, tracker, ctx, every=25, boxes=Fal
 
         # write out main frame and go again
         full_out_video.write(out_frame)
-        print(current)
         current += 1
 
     # release the full video
@@ -603,7 +610,7 @@ def track(video_dir, out_dir, video_file, net, tracker, ctx, every=25, boxes=Fal
 
 
 def tracker(video_dir, model_path, every=25, gpus='', boxes=False, threshold=0.5, show_trails=True, img_snapshots=True,
-            vid_snapshots=True):
+            vid_snapshots=True, max_age=30, min_hits=1):
 
     file_types = ['.mp4', '.MP4', '.avi', '.AVI', '.mov', '.MOV']
 
@@ -646,7 +653,8 @@ def tracker(video_dir, model_path, every=25, gpus='', boxes=False, threshold=0.5
             continue
 
         n_tracks, total = track(video_dir=os.path.join(video_dir, 'unprocessed', gpus),
-                                out_dir=out_dir, video_file=video_file, net=net, tracker=Sort(), ctx=ctx, every=every,
+                                out_dir=out_dir, video_file=video_file, net=net,
+                                tracker=Sort(max_age=max_age, min_hits=min_hits), ctx=ctx, every=every,
                                 boxes=boxes, threshold=threshold, show_trails=show_trails,
                                 snapshot_imgs_dir=snapshot_imgs_dir, snapshot_clips_dir=snapshot_vids_dir)
 
@@ -680,7 +688,9 @@ if __name__ == '__main__':
             threshold=args.threshold,
             show_trails=args.show_trails,
             img_snapshots=args.img_snapshots,
-            vid_snapshots=args.vid_snapshots)
+            vid_snapshots=args.vid_snapshots,
+            max_age=args.max_age,
+            min_hits=args.min_hits)
 
 
 # todo fix bug writing out video clip snapshot with two frames of a track flip, probably something to do with the dict deleting and readding...
