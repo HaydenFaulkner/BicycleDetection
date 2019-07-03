@@ -48,7 +48,7 @@ def parse_args():
                         help="Save out a single image for each track.")
     parser.add_argument('--vid_snapshots', type=bool, default=True,
                         help="Save out individual clips for each track.")
-    parser.add_argument('--max_age', type=int, default=100,
+    parser.add_argument('--max_age', type=int, default=30,
                         help="Maximum age of a missing track before it is terminated. Default is 100 frames.")
     parser.add_argument('--min_hits', type=int, default=1,
                         help="Minimum number of detection / track matches before track displayed. Default is 1.")
@@ -103,7 +103,7 @@ def convert_x_to_bbox(x, score=None):
         return np.array([x[0] - w / 2., x[1] - h / 2., x[0] + w / 2., x[1] + h / 2., score]).reshape((1, 5))
 
 
-def associate_detections_to_tracks(detections, tracks, iou_threshold=0.1):
+def associate_detections_to_tracks(detections, tracks, iou_threshold=0.01):
     """
     Assigns detections to tracked object (both represented as bounding boxes)
 
@@ -117,11 +117,9 @@ def associate_detections_to_tracks(detections, tracks, iou_threshold=0.1):
         for t, trk in enumerate(tracks):
             iou_matrix[d, t] = iou(det, trk)
 
-    try:
-        # matched_indices = linear_assignment(-iou_matrix)
-        matched_indices = np.swapaxes(np.array(linear_sum_assignment(-iou_matrix)), 0, 1)
-    except DeprecationWarning:
-        pass
+
+    # matched_indices = linear_assignment(-iou_matrix)
+    matched_indices = np.swapaxes(np.array(linear_sum_assignment(-iou_matrix)), 0, 1)
 
     unmatched_detections = []
     for d, det in enumerate(detections):
@@ -148,59 +146,63 @@ def associate_detections_to_tracks(detections, tracks, iou_threshold=0.1):
     return matches, np.array(unmatched_detections), np.array(unmatched_tracks)
 
 
-# class Tracker(object):
-#     count = 0
-#
-#     def __init__(self, bbox):
-#
-#         self.time_since_update = 0
-#         self.id = Tracker.count
-#         Tracker.count += 1
-#         # self.history = []
-#         # self.hits = 0
-#         # self.hit_streak = 0
-#         self.age = 0
-#
-#         # todo how many past obvs to use, as many as possible but weight?
-#         self.observations = [bbox]
-#         self.observation_frames = [0]
-#         self.vel = np.zeros(4)  # current velocity: x, y, x2, y2
-#         self.vel_frame = 1
-#         self.acc = np.zeros(4)  # current acceleration: x, y, x2, y2
-#         self.current = bbox
-#
-#     def update(self, bbox):
-#         self.observations.append(bbox)
-#         self.observation_frames.append(self.age)
-#
-#         if len(self.observations) > 1:
-#             vel = (self.observations[-1] - self.observations[-2]) / \
-#                   (self.observation_frames[-1] - self.observation_frames[-2])
-#             if len(self.observations) > 2:
-#                 self.acc = (self.vel - vel) / (self.vel_frame - self.age)
-#             self.vel = vel
-#             self.vel_frame = self.age
-#
-#         # for i in range(-1, -len(self.observations) - 1, -1):  # todo if need we can avg vel and acc over a longer time period than 3 obsv
-#
-#     def predict(self, det):
-#         if det:
-#             self.time_since_update += 1
-#
-#         vel = self.vel
-#         acc = self.acc
-#         cur = self.observations[-1]
-#         for i in range(self.age-self.observation_frames[-1]): # this is how many frames we need to model over
-#             # vel += acc
-#             cur += vel
-#         self.current = cur
-#
-#         self.age += 1
-#
-#         return self.current
-#
-#     def get_state(self):
-#         return self.current
+class Tracker(object):
+    count = 0
+
+    def __init__(self, bbox):
+
+        self.time_since_update = 0
+        self.id = Tracker.count
+        Tracker.count += 1
+        # self.history = []
+        # self.hits = 0
+        # self.hit_streak = 0
+        self.age = 0
+        self.lookback_max = 10
+
+        # todo how many past obvs to use, as many as possible but weight?
+        self.observations = [convert_bbox_to_z(bbox).squeeze()]
+        self.observation_frames = [0]
+        self.vel = np.zeros(4)  # current velocity: mx, my, s, r
+        self.vel_frame = 1
+        self.acc = np.zeros(4)  # current acceleration: mx, my, s, r
+        self.current = convert_bbox_to_z(bbox).squeeze()
+
+    def update(self, bbox):
+        bbox = convert_bbox_to_z(bbox).squeeze()
+        self.observations.append(bbox)
+        self.observation_frames.append(self.age)
+
+        vels_o = []
+        for i in range(-1, -min(len(self.observations), self.lookback_max) - 1, -1):
+            vels_i = []
+            for j in range(i-1, -min(len(self.observations), self.lookback_max) - 1, -1):
+                vels_i.append((self.observations[j] - self.observations[i]) /
+                              (self.observation_frames[j] - self.observation_frames[i]))
+            if len(vels_i) > 0:
+                vels_o.append(np.mean(vels_i, keepdims=True, axis=0).squeeze())
+            if len(vels_o) > 1:
+                self.acc = vels_o[0] - vels_o[1]
+        self.vel = np.mean(vels_o, keepdims=True, axis=0).squeeze()
+
+    def predict(self, det):
+        # if det:
+        self.time_since_update += 1
+
+        vel = self.vel.copy()
+        acc = self.acc.copy()
+        cur = self.observations[-1].copy()
+        for i in range(self.age-self.observation_frames[-1]):  # this is how many frames we need to model over
+            vel += acc
+            cur += vel
+        self.current = cur
+
+        self.age += 1
+
+        return convert_x_to_bbox(self.current).squeeze()
+
+    def get_state(self):
+        return convert_x_to_bbox(self.current).squeeze()
 
 
 class KalmanBoxTracker(object):
@@ -266,67 +268,68 @@ class KalmanBoxTracker(object):
         """
         return convert_x_to_bbox(self.kf.x)
 
-# class HTrack(object):
-#     def __init__(self, max_age=100, min_hits=2):
-#         """
-#         Sets key parameters for SORT
-#         """
-#         self.max_age = max_age
-#         self.min_hits = min_hits
-#         self.trackers = []
-#         self.frame_count = 0
-#         self.det_count = 0
-#
-#     def update(self, dets, det):
-#         """
-#         Params:
-#           dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
-#         Returns the a similar array, where the last column is the object ID.
-#
-#         NOTE: The number of objects returned may differ from the number of detections provided.
-#         """
-#         self.frame_count += 1
-#
-#         # get predicted locations from existing trackers.
-#         trks = np.zeros((len(self.trackers), 5))
-#         to_del = []
-#         ret = []
-#         for t, trk in enumerate(trks):
-#             pos = self.trackers[t].predict(det)
-#             trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
-#             if np.any(np.isnan(pos)):
-#                 to_del.append(t)
-#         trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
-#         for t in reversed(to_del):
-#             self.trackers.pop(t)
-#
-#         if det:
-#             self.det_count += 1
-#             matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets, trks)
-#
-#             # update matched trackers with assigned detections
-#             for t, trk in enumerate(self.trackers):
-#                 if t not in unmatched_trks:
-#                     d = matched[np.where(matched[:, 1] == t)[0], 0]
-#                     trk.update(dets[d[0]])
-#
-#             # create and initialise new trackers for unmatched detections
-#             for i in unmatched_dets:
-#                 trk = Tracker(dets[i])
-#                 self.trackers.append(trk)
-#
-#         i = len(self.trackers)
-#         for trk in reversed(self.trackers):
-#             d = trk.get_state()
-#             if trk.hit_streak >= self.min_hits or self.det_count <= self.min_hits:
-#                 ret.append(np.concatenate((d, [trk.id + 1])).reshape(1, -1))  # +1 as MOT benchmark requires positive
-#             i -= 1
-#             # remove dead tracklet
-#             if trk.time_since_update > self.max_age:
-#                 self.trackers.pop(i)
-#         if len(ret) > 0:
-#             return np.concatenate(ret)
-#         return np.empty((0, 5))
+
+class HTrack(object):
+    def __init__(self, max_age=100, min_hits=2):
+        """
+        Sets key parameters for SORT
+        """
+        self.max_age = max_age
+        self.min_hits = min_hits
+        self.trackers = []
+        self.frame_count = 0
+        self.det_count = 0
+
+    def update(self, dets, det):
+        """
+        Params:
+          dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
+        Returns the a similar array, where the last column is the object ID.
+
+        NOTE: The number of objects returned may differ from the number of detections provided.
+        """
+        self.frame_count += 1
+
+        # get predicted locations from existing trackers.
+        trks = np.zeros((len(self.trackers), 5))
+        to_del = []
+        ret = []
+        for t, trk in enumerate(trks):
+            pos = self.trackers[t].predict(det)
+            trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
+            if np.any(np.isnan(pos)):
+                to_del.append(t)
+        trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
+        for t in reversed(to_del):
+            self.trackers.pop(t)
+
+        if det:
+            self.det_count += 1
+            matched, unmatched_dets, unmatched_trks = associate_detections_to_tracks(dets, trks)
+
+            # update matched trackers with assigned detections
+            for t, trk in enumerate(self.trackers):
+                if t not in unmatched_trks:
+                    d = matched[np.where(matched[:, 1] == t)[0], 0]
+                    trk.update(dets[d[0]])
+
+            # create and initialise new trackers for unmatched detections
+            for i in unmatched_dets:
+                trk = Tracker(dets[i])
+                self.trackers.append(trk)
+
+        i = len(self.trackers)
+        for trk in reversed(self.trackers):
+            d = trk.get_state()
+            # if trk.hit_streak >= self.min_hits or self.det_count <= self.min_hits:
+            ret.append(np.concatenate((d, [trk.id + 1])).reshape(1, -1))  # +1 as MOT benchmark requires positive
+            i -= 1
+            # remove dead tracklet
+            if trk.time_since_update > self.max_age:
+                self.trackers.pop(i)
+        if len(ret) > 0:
+            return np.concatenate(ret)
+        return np.empty((0, 5))
 
 
 class Sort(object):
@@ -547,7 +550,7 @@ def track(video_dir, out_dir, video_file, net, tracker, ctx, every=25, boxes=Fal
                         clean_frame = cv_plot_bbox(out_path=None,
                                                    img=clean_frame,
                                                    bboxes=[tbboxes[idx]],
-                                                   scores=[scores[idx]],
+                                                   scores=None,
                                                    labels=[tid],
                                                    thresh=threshold,
                                                    colors=colors,
@@ -574,12 +577,11 @@ def track(video_dir, out_dir, video_file, net, tracker, ctx, every=25, boxes=Fal
                     cv2.circle(overlay, dot, 2, colors[tid], -1)
                 out_frame = cv2.addWeighted(overlay, alpha, out_frame, 1 - alpha, 0)
 
-        # draw any boxes that exist
         if tbboxes:
             out_frame = cv_plot_bbox(out_path=None,
                                      img=out_frame,
                                      bboxes=tbboxes,
-                                     scores=scores,
+                                     scores=None,
                                      labels=tids,
                                      thresh=threshold,
                                      colors=colors,
@@ -589,6 +591,8 @@ def track(video_dir, out_dir, video_file, net, tracker, ctx, every=25, boxes=Fal
         full_out_video.write(out_frame)
         current += 1
 
+        # if current > 200:
+        #     break
     # release the full video
     if full_out_video is not None:
         full_out_video.release()
@@ -658,12 +662,18 @@ def tracker(video_dir, model_path, every=25, gpus='', boxes=False, threshold=0.5
                                 boxes=boxes, threshold=threshold, show_trails=show_trails,
                                 snapshot_imgs_dir=snapshot_imgs_dir, snapshot_clips_dir=snapshot_vids_dir)
 
+        # n_tracks, total = track(video_dir=os.path.join(video_dir, 'unprocessed', gpus),
+        #                         out_dir=out_dir, video_file=video_file, net=net,
+        #                         tracker=HTrack(), ctx=ctx, every=every,
+        #                         boxes=boxes, threshold=threshold, show_trails=show_trails,
+        #                         snapshot_imgs_dir=snapshot_imgs_dir, snapshot_clips_dir=snapshot_vids_dir)
+
         # move video to processed dir
         if n_tracks > 0:
             total_vids_done += 1
             out_total += n_tracks
             total_total += total
-            os.rename(os.path.join(video_dir, 'unprocessed', gpus, video_file), os.path.join(video_dir, 'processed', video_file))
+            # os.rename(os.path.join(video_dir, 'unprocessed', gpus, video_file), os.path.join(video_dir, 'processed', video_file))
         else:
             print("No detections found in video, consider lowering the threshold.")
 
