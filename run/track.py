@@ -675,7 +675,7 @@ def tracker(video_dir, model_path, every=25, gpus='', boxes=False, threshold=0.5
             total_vids_done += 1
             out_total += n_tracks
             total_total += total
-            # os.rename(os.path.join(video_dir, 'unprocessed', gpus, video_file), os.path.join(video_dir, 'processed', video_file))
+            os.rename(os.path.join(video_dir, 'unprocessed', gpus, video_file), os.path.join(video_dir, 'processed', video_file))
         else:
             print("No detections found in video, consider lowering the threshold.")
 
