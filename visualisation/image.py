@@ -98,7 +98,7 @@ def cv_plot_bbox(img, bboxes, out_path=None,
 
         xmin, ymin, xmax, ymax = [int(x) for x in bbox]
 
-        cv2.rectangle(img, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
+        cv2.rectangle(img, (xmin, ymin), (xmax, ymax), colors[cls_id], 2)
 
         # if class_names is not None and cls_id < len(class_names):
         #     class_name = class_names[cls_id]
