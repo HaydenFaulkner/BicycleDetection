@@ -18,7 +18,6 @@ import random
 import os.path
 import math
 import numpy as np
-from sklearn.utils.linear_assignment_ import linear_assignment
 from scipy.optimize import linear_sum_assignment
 import time
 import argparse
@@ -48,10 +47,10 @@ def parse_args():
                         help="Save out a single image for each track.")
     parser.add_argument('--vid_snapshots', type=bool, default=True,
                         help="Save out individual clips for each track.")
-    parser.add_argument('--max_age', type=int, default=300,
-                        help="Maximum age of a missing track before it is terminated. Default is 100 frames.")
+    parser.add_argument('--max_age', type=int, default=50,
+                        help="Maximum age of a missing track before it is terminated. Default is 50 frames.")
     parser.add_argument('--min_hits', type=int, default=2,
-                        help="Minimum number of detection / track matches before track displayed. Default is 1.")
+                        help="Minimum number of detection / track matches before track displayed. Default is 2.")
 
     # parser.add_argument('--backend', type=str, default="mx",
     #                     help="The backend to use: mxnet (mx) or tensorflow (tf). Currently only supports mxnet.")
@@ -388,7 +387,7 @@ class Sort(object):
                 ret.append(np.concatenate((d, [trk.id + 1])).reshape(1, -1))  # +1 as MOT benchmark requires positive
             i -= 1
             # remove dead tracklet
-            if trk.time_since_update > self.max_age or (d[2]-d[0]) < 30 or (d[3]-d[1]) < 30 or d[0] < 0 or d[1] < 0 or d[2] > img_size[0] or d[3] > img_size[1]:  # remove small box
+            if trk.time_since_update > self.max_age or (d[2]-d[0]) < 20 or (d[3]-d[1]) < 20 or d[0] < 0 or d[1] < 0 or d[2] > img_size[0] or d[3] > img_size[1]:  # remove small box
                 self.tracks.pop(i)
         if len(ret) > 0:
             return np.concatenate(ret)
@@ -457,6 +456,7 @@ def track(video_dir, out_dir, video_file, net, tracker, ctx, every=25, boxes=Fal
     track_trails = queue.Queue(maxsize=50)
     colors = {}
     KalmanBoxTracker.count = 0
+    open_vids = 0
     while True:
         if current % int(total*.1) == 0:
             print("%d%% (%d/%d)" % (int(100*current/total)+1, current, total))
@@ -524,10 +524,11 @@ def track(video_dir, out_dir, video_file, net, tracker, ctx, every=25, boxes=Fal
             if snapshot_clips_dir:
                 # open a new clip for this track
                 if tid not in vid_track_snapshots:
-                    vid_track_snapshots[tid] = cv2.VideoWriter("%s_%d.mp4" % (os.path.join(snapshot_clips_dir, video_file[:-4]), tid),
+                    open_vids += 1
+                    vid_track_snapshots[tid] = cv2.VideoWriter("%s_%d.mp4" % (os.path.join(snapshot_clips_dir, video_file[:-4]), tid), #open_vids),
                                                                cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), 25, (width, height))
 
-                # if the track wasn't found it has died, close it's associated clip
+                # # if the track wasn't found it has died, close it's associated clip
                 del_tids = []
                 for k, vid in vid_track_snapshots.items():
                     if k not in tids:
@@ -545,6 +546,7 @@ def track(video_dir, out_dir, video_file, net, tracker, ctx, every=25, boxes=Fal
                         pass
 
                     # draw and write out frames for each separate track
+                    # if k in tids:
                     idx = tids.index(k)
                     if tbboxes[idx]:
                         clean_frame = cv_plot_bbox(out_path=None,
