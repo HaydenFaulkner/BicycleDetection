@@ -135,13 +135,13 @@ def clip_video(video_dir, clip_dir, video_file, net, ctx, every=25, buffer=25, b
                     if summary_clip is None and separate < 2:
                         print("Making Summary Clip: %s_summary.mp4" % os.path.join(clip_dir, video_file[:-4]))
                         summary_clip = cv2.VideoWriter("%s_summary.mp4" % os.path.join(clip_dir, video_file[:-4]),
-                                           cv2.VideoWriter_fourcc('F', 'M', 'P', '4'), 25, (width, height))
+                                                       cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), 25, (width, height))
 
                     # start the clip
                     if separate > 0:
                         print("Making Subclip: %s_%05d.mp4" % (os.path.join(clip_dir, video_file[:-4]), clip_count+1))
                         clip = cv2.VideoWriter("%s_%05d.mp4" % (os.path.join(clip_dir, video_file[:-4]), clip_count+1),
-                                               cv2.VideoWriter_fourcc('F', 'M', 'P', '4'), 25, (width, height))
+                                               cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), 25, (width, height))
                     # clip = cv2.VideoWriter("%s_%05d.avi" % (os.path.join(clip_dir, video_file[:-4]), clip_count+1),
                     #                        cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'), 25, (width, height))
 
