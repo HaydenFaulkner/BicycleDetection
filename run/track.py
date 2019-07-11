@@ -39,8 +39,8 @@ def parse_args():
                         help="Display bounding boxes on the processed frames.")
     parser.add_argument('--gpus', type=str, default="0",
                         help="GPU ids to use, defaults to '0', if want CPU set to ''. Use comma for multiple eg. '0,1'.")
-    parser.add_argument('--threshold', type=float, default=0.5,
-                        help="Threshold on detection confidence. Default is 0.5")
+    parser.add_argument('--threshold', type=float, default=0.99,
+                        help="Threshold on detection confidence. Default is 0.99")
     parser.add_argument('--show_trails', type=bool, default=True,
                         help="Display little trails behind the tracks.")
     parser.add_argument('--img_snapshots', type=bool, default=True,
@@ -463,7 +463,7 @@ def track(video_dir, out_dir, video_file, net, tracker, ctx, every=25, boxes=Fal
 
         flag, frame = capture.read()
         if flag == 0 and current < total-2:
-            print("frame %d error flag" % current)
+            # print("frame %d error flag" % current)
             current += 1
             continue
             #break

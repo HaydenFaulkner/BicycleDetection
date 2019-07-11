@@ -35,8 +35,8 @@ def parse_args():
                         help="How many frames to buffer around cyclists. Default is 25.")
     parser.add_argument('--separate', type=int, default=0,
                         help="0: only make single summary clip; 1: make both summary and sub clips; 2: make only sub clips. Default is 0.")
-    parser.add_argument('--threshold', type=float, default=0.5,
-                        help="Threshold on detection confidence. Default is 0.5")
+    parser.add_argument('--threshold', type=float, default=0.99,
+                        help="Threshold on detection confidence. Default is 0.99")
 
     # parser.add_argument('--backend', type=str, default="mx",
     #                     help="The backend to use: mxnet (mx) or tensorflow (tf). Currently only supports mxnet.")
@@ -109,7 +109,7 @@ def clip_video(video_dir, clip_dir, video_file, net, ctx, every=25, buffer=25, b
 
         flag, frame = capture.read()
         if flag == 0 and current < total-2:
-            print("frame %d error flag" % current)
+            # print("frame %d error flag" % current)
             current += 1
             continue
             #break
