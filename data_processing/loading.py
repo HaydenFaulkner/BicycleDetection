@@ -18,6 +18,9 @@ def load_data(root, categories):
         annotation = interpolate_annotation(annotation)
 
         annotation['video_path'] = os.path.join(root, 'videos', file[:-4] + '.mp4')
+        if not os.path.exists(os.path.join(root, 'videos', file[:-4] + '.mp4')):
+            print("{} does not exist".format(os.path.join(root, 'videos', file[:-4] + '.mp4')))
+            continue
 
         # Make sure it's a category we want
         d_keys = set(annotation['instances'].keys())
@@ -63,7 +66,7 @@ def load_sample_ids(data, sample_type='frames', allow_empty=False):
                 for frame_id in sorted_frames:
                     if frame_id not in frames:
                         if frame_id < 0:
-                            print(instance)
+                            # print(instance)
                             continue
                         frames.add(frame_id)
                         sample_id = len(sample_ids)
@@ -172,11 +175,10 @@ def load_datasets(root, split_id, categories, percent=1):
 
 
 if __name__ == '__main__':
-    # root = os.getcwd()[:-11] + '/filtered'  # messy but should do if all named correctly
-    root = '/media/hayden/CASR_ACVT/data/filtered'  # todo remove direct path
+    root = 'data/filtered_old'
 
     data = load_data(root, ['cyclist'])
     sample_ids = load_sample_ids(data, sample_type='frames', allow_empty=False)
-    generate_splits(root, split_id="001", sample_ids=sample_ids, ratios=[.8, .1, .1], exclusive_clips=True, save=True)
+    generate_splits(root, split_id="002", sample_ids=sample_ids, ratios=[.8, .1, .1], exclusive_clips=True, save=True)
 
-    train_dataset, val_dataset, test_dataset = load_datasets(root, split_id="001", categories=['cyclist'])
+    # train_dataset, val_dataset, test_dataset = load_datasets(root, split_id="001", categories=['cyclist'])
