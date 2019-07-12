@@ -133,7 +133,5 @@ def aligner(root):
 
 
 if __name__ == '__main__':
-    # root = os.getcwd()[:-11] + '/filtered'  # messy but should do if all named correctly
-    root = '/media/hayden/CASR_ACVT/data/filtered'  # todo remove direct path
 
-    aligner(root=root)
+    aligner(root='data/filtered')
