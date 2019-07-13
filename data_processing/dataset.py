@@ -102,7 +102,6 @@ class CycleDataset(VisionDataset):
 
     def __getitem__(self, idx):
         label = self.get_boxes(self._sample_ids[idx])
-        label = np.array(label)
         img = self._get_frame(self._samples[self._sample_ids[idx]], cache=self._cache_frames)
         img = np.squeeze(img)
         img = mx.nd.array(img, dtype='uint8')
@@ -202,7 +201,10 @@ class CycleDataset(VisionDataset):
             for instance_id, instance in clip['instances'].items():
                 if frame_id in instance['key_boxes'].keys():
                     boxes.append(instance['key_boxes'][frame_id])
-        return boxes
+
+            if len(boxes) < 1:
+                boxes.append([-1, -1, -1, -1, -1])
+        return np.array(boxes)
 
     def get_set_captions(self):
         captions = {}
@@ -283,7 +285,7 @@ class CycleDataset(VisionDataset):
                 try:
                     boxes_p_cls[self._categories.index(int(label[4]))] += 1
                 except ValueError:
-                    print()
+                    print('k')
                 boxes_this_img += 1
                 if samples_p_cls_flag[self._categories.index(int(label[4]))] == 0:
                     samples_p_cls_flag[self._categories.index(int(label[4]))] = 1

@@ -452,47 +452,45 @@ if __name__ == '__main__':
 
     # training data
     train_dataset, val_dataset, eval_metric = get_dataset(args)
-    for i in val_dataset:
-        print()
 
     # network
     os.makedirs(os.path.join('models', args.save_prefix), exist_ok=bool(args.resume.strip()))
-    # net_name = '_'.join(('yolo3', args.network, args.dataset))
-    # args.save_prefix = os.path.join('models', args.save_prefix, net_name)
-    #
-    # if args.network == 'darknet53':
-    #     # use sync bn if specified
-    #     if args.syncbn and len(ctx) > 1:
-    #         net = yolo3_darknet53(train_dataset.classes, args.dataset, root='models', pretrained_base=True,
-    #                               norm_layer=gluon.contrib.nn.SyncBatchNorm,
-    #                               norm_kwargs={'num_devices': len(ctx)})
-    #         async_net = yolo3_darknet53(train_dataset.classes, args.dataset, root='models', pretrained_base=False)  # used by cpu worker
-    #     else:
-    #         net = yolo3_darknet53(train_dataset.classes, args.dataset, root='models', pretrained_base=True)
-    #         async_net = net
-    # elif args.network == 'mobilenet1_0':
-    #     if args.syncbn and len(ctx) > 1:
-    #         net = yolo3_mobilenet1_0_custom(train_dataset.classes, args.dataset, root='models', pretrained_base=True,
-    #                                         norm_layer=gluon.contrib.nn.SyncBatchNorm,
-    #                                         norm_kwargs={'num_devices': len(ctx)})
-    #         async_net = yolo3_mobilenet1_0_custom(train_dataset.classes, args.dataset, root='models',
-    #                                               pretrained_base=False)  # used by cpu worker
-    #     else:
-    #         net = yolo3_mobilenet1_0_custom(train_dataset.classes, args.dataset, root='models', pretrained_base=True)
-    #         async_net = net
-    # else:
-    #     raise NotImplementedError('Model: {} not implemented.'.format(args.network))
-    #
-    # if args.resume.strip():
-    #     resume(net, async_net, args)
-    # else:
-    #     with warnings.catch_warnings(record=True) as w:
-    #         warnings.simplefilter("always")
-    #         net.initialize()
-    #         async_net.initialize()
-    #
-    # train_data, val_data = get_dataloader(
-    #     async_net, train_dataset, val_dataset, args.data_shape, args.batch_size, args.num_workers, args)
-    #
-    # # training
-    # train(net, train_data, val_data, eval_metric, ctx, args)
+    net_name = '_'.join(('yolo3', args.network, args.dataset))
+    args.save_prefix = os.path.join('models', args.save_prefix, net_name)
+
+    if args.network == 'darknet53':
+        # use sync bn if specified
+        if args.syncbn and len(ctx) > 1:
+            net = yolo3_darknet53(train_dataset.classes, args.dataset, root='models', pretrained_base=True,
+                                  norm_layer=gluon.contrib.nn.SyncBatchNorm,
+                                  norm_kwargs={'num_devices': len(ctx)})
+            async_net = yolo3_darknet53(train_dataset.classes, args.dataset, root='models', pretrained_base=False)  # used by cpu worker
+        else:
+            net = yolo3_darknet53(train_dataset.classes, args.dataset, root='models', pretrained_base=True)
+            async_net = net
+    elif args.network == 'mobilenet1_0':
+        if args.syncbn and len(ctx) > 1:
+            net = yolo3_mobilenet1_0_custom(train_dataset.classes, args.dataset, root='models', pretrained_base=True,
+                                            norm_layer=gluon.contrib.nn.SyncBatchNorm,
+                                            norm_kwargs={'num_devices': len(ctx)})
+            async_net = yolo3_mobilenet1_0_custom(train_dataset.classes, args.dataset, root='models',
+                                                  pretrained_base=False)  # used by cpu worker
+        else:
+            net = yolo3_mobilenet1_0_custom(train_dataset.classes, args.dataset, root='models', pretrained_base=True)
+            async_net = net
+    else:
+        raise NotImplementedError('Model: {} not implemented.'.format(args.network))
+
+    if args.resume.strip():
+        resume(net, async_net, args)
+    else:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            net.initialize()
+            async_net.initialize()
+
+    train_data, val_data = get_dataloader(
+        async_net, train_dataset, val_dataset, args.data_shape, args.batch_size, args.num_workers, args)
+
+    # training
+    train(net, train_data, val_data, eval_metric, ctx, args)
