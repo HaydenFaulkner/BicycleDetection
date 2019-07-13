@@ -250,7 +250,7 @@ def track(files, detections_dir, stats_dir, tracks_dir,
         for d in detections:
             if mult:
                 d_ = [int(d[1]), float(d[2]),
-                      float(d[3])*width, float(d[4])*width,
+                      float(d[3])*width, float(d[4])*height,
                       float(d[5])*width, float(d[6])*height]
             else:
                 d_ = [int(d[1]), float(d[2]),
