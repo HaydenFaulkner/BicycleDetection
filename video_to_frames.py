@@ -9,7 +9,7 @@ import os
 from tqdm import tqdm
 
 
-def video_to_frames(video_path, frames_dir, overwrite=True):
+def video_to_frames(video_path, frames_dir, stats_dir, overwrite=True):
 
     video_path, video_filename = os.path.split(video_path)
 
@@ -42,6 +42,10 @@ def video_to_frames(video_path, frames_dir, overwrite=True):
         height, width, _ = frame.shape
         cv2.imwrite(os.path.join(frames_dir, video_filename, "{:010d}.jpg".format(current)), frame)
 
+    os.makedirs(stats_dir, exist_ok=True)
+    with open(os.path.join(stats_dir, video_filename[:-4]+'.txt'), 'w') as f:
+        f.write('{},{},{},{}'.format(video_filename, width, height, current))
+
     return os.path.join(frames_dir, video_filename)
 
 
@@ -56,7 +60,7 @@ def main(_argv):
 
     # generate frames
     for video in tqdm(videos, desc='Generating frames'):
-        video_to_frames(os.path.join(FLAGS.videos_dir, video), FLAGS.frames_dir)
+        video_to_frames(os.path.join(FLAGS.videos_dir, video), FLAGS.frames_dir, FLAGS.stats_dir)
 
 
 if __name__ == '__main__':
@@ -64,6 +68,8 @@ if __name__ == '__main__':
                         'Directory containing the video files to process')
     flags.DEFINE_string('frames_dir', 'data/frames',
                         'Directory to hold the frames as images')
+    flags.DEFINE_string('stats_dir', 'data/stats',
+                        'Directory to hold the video stats')
 
     try:
         app.run(main)
