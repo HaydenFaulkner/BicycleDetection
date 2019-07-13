@@ -4,16 +4,11 @@ Runs the tracker on detections
 """
 from absl import app, flags, logging
 from absl.flags import FLAGS
-
-
-import random
-import os.path
-import math
+from filterpy.kalman import KalmanFilter
 import numpy as np
+import os.path
 from scipy.optimize import linear_sum_assignment
 from tqdm import tqdm
-from filterpy.kalman import KalmanFilter
-
 
 
 class KalmanBoxTracker(object):
@@ -141,7 +136,6 @@ class Sort(object):
         if len(ret) > 0:
             return np.concatenate(ret)
         return np.empty((0, 5))
-
 
 
 def iou(bb_test, bb_gt):
@@ -290,15 +284,15 @@ def track(files, detections_dir, stats_dir, tracks_dir,
 
 
 def main(_argv):
-    # Get a list of videos to process
+    # Get a list of detections to process
     if os.path.exists(FLAGS.detections_dir):
-        videos = os.listdir(FLAGS.detections_dir)
-        logging.info("Will process {} videos from {}".format(len(videos), FLAGS.detections_dir))
+        detections = os.listdir(FLAGS.detections_dir)
+        logging.info("Will process {} detections files from {}".format(len(detections), FLAGS.detections_dir))
     else:
         logging.info("detections_dir does not exist: {}".format(FLAGS.detections_dir))
         return
 
-    track(videos, FLAGS.detections_dir, FLAGS.stats_dir, FLAGS.tracks_dir,
+    track(detections, FLAGS.detections_dir, FLAGS.stats_dir, FLAGS.tracks_dir,
           FLAGS.detect_every, FLAGS.track_detection_threshold)
 
 
@@ -309,37 +303,12 @@ if __name__ == '__main__':
                         'Directory to save the detection files')
     flags.DEFINE_string('tracks_dir', 'data/tracks',
                         'Directory to save the track files')
-    flags.DEFINE_string('img_snapshots_dir', 'data/snapshots/images',
-                        'Directory to save image snapshots, if the flag --image_snapshots is used')
-    flags.DEFINE_string('vid_snapshots_dir', 'data/snapshots/videos',
-                        'Directory to save video snapshots, if the flag --video_snapshots is used')
-
-    flags.DEFINE_string('gpus', '0',
-                        'GPU IDs to use. Use comma for multiple eg. 0,1. Default is 0')
-
-    flags.DEFINE_string('model_path', 'models/002_faster_rcnn_resnet50_v1b_custom_cycle/best.params',
-                        'Path to the detection model to use')
 
     flags.DEFINE_integer('detect_every', 5,
                          'The frame interval to perform detection. Default is 5')
-    flags.DEFINE_float('save_detection_threshold', 0.5,
-                       'The threshold on detections to them being saved to the detection save file. Default is 0.5')
-    flags.DEFINE_float('track_detection_threshold', 0.6,
-                       'The threshold on detections to them being tracked. Default is 0.99')
+    flags.DEFINE_float('track_detection_threshold', 0.5,
+                       'The threshold on detections to them being tracked. Default is 0.5')
 
-    flags.DEFINE_boolean('generate_sub_clips', False,
-                         'Do you want to generate sub clip videos? Default is False')
-    flags.DEFINE_boolean('display_boxes', False,
-                         'Do you want to paint boxes on the sub clip videos and video snapshots? Default is False')
-    flags.DEFINE_boolean('generate_image_snapshots', False,
-                         'Do you want to save image snapshots for each track? Default is False')
-    flags.DEFINE_boolean('generate_video_snapshots', False,
-                         'Do you want to save video snapshots for each track? Default is False')
-
-    # flags.DEFINE_enum('mode', 'fit', ['fit', 'eager_fit', 'eager_tf'],
-    #                   'fit: model.fit, '
-    #                   'eager_fit: model.fit(run_eagerly=True), '
-    #                   'eager_tf: custom GradientTape')
 
     try:
         app.run(main)
