@@ -207,7 +207,7 @@ def main(_argv):
 
     net, transform = prep_net(FLAGS.model_path, FLAGS.batch_size, ctx)
 
-    dataset, loader = prep_data(frame_paths, transform, FLAGS.batch_size, num_workers=4)
+    dataset, loader = prep_data(frame_paths, transform, FLAGS.batch_size, FLAGS.num_workers)
 
     detect(net, dataset, loader, ctx, FLAGS.detections_dir, FLAGS.save_detection_threshold)
 
@@ -224,6 +224,9 @@ if __name__ == '__main__':
 
     flags.DEFINE_string('gpus', '0',
                         'GPU IDs to use. Use comma for multiple eg. 0,1. Default is 0')
+    flags.DEFINE_integer('num_workers', 8,
+                         'The number of workers should be picked so that it’s equal to number of cores on your machine'
+                         ' for max parallelization. Default is 8')
 
     flags.DEFINE_integer('batch_size', 2,
                          'Batch size for detection: higher faster, but more memory intensive. Default is 2')
