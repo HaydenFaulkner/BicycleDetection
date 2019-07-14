@@ -289,7 +289,7 @@ def track(files, detections_dir, stats_dir, tracks_dir,
                     dets = detections_[current]
 
             for t in tracker.update(dets, det, (width, height)):
-                tracks.append([current, int(t[4]), float(t[5]), float(t[0]), float(t[1]), float(t[2]), float(t[3])])
+                tracks.append([current, int(t[5]), float(t[4]), float(t[0]), float(t[1]), float(t[2]), float(t[3])])
 
         with open(os.path.join(tracks_dir, file), 'w') as f:
             for t in tracks:
