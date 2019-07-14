@@ -100,10 +100,15 @@ def as_numpy(a):
     return a
 
 
-def detect(frame_paths, detections_dir, model_path, batch_size, gpus, save_detection_threshold,
-           num_workers=4):
+def prep_data(frame_paths, transform, batch_size, num_workers):
+    dataset = DetectSet(frame_paths)
+    loader = gluon.data.DataLoader(dataset.transform(transform),
+                                   batch_size, False, last_batch='keep',
+                                   num_workers=num_workers, batchify_fn=Tuple(Stack(),Stack()),)
+    return dataset, loader
 
-    os.makedirs(detections_dir, exist_ok=True)
+
+def prep_net(model_path, batch_size, ctx):
 
     if 'faster_rcnn' in model_path:
         assert batch_size == 1, 'can only have a batch size of 1 for faster rcnn'
@@ -121,17 +126,15 @@ def detect(frame_paths, detections_dir, model_path, batch_size, gpus, save_detec
 
     net.load_parameters(model_path)
 
-    dataset = DetectSet(frame_paths)
-
-    # testing contexts
-    ctx = [mx.gpu(int(i)) for i in gpus.split(',') if i.strip()]
-    ctx = ctx if ctx else [mx.cpu()]
-
-    loader = gluon.data.DataLoader(dataset.transform(transform),
-                                   batch_size, False, last_batch='keep',
-                                   num_workers=num_workers, batchify_fn=Tuple(Stack(),Stack()),)
-
     net.collect_params().reset_ctx(ctx)
+
+    return net, transform
+
+
+def detect(net, dataset, loader, ctx, detections_dir, save_detection_threshold):
+
+    os.makedirs(detections_dir, exist_ok=True)
+
     net.set_nms(nms_thresh=0.45, nms_topk=400)
     # net.hybridize()
     net.hybridize(static_alloc=True)
@@ -190,7 +193,7 @@ def main(_argv):
 
     # generate frames if need be, if they exist don't do
     for video in tqdm(videos, desc='Generating frames'):
-        video_to_frames(os.path.join(FLAGS.videos_dir, video), FLAGS.frames_dir, overwrite=False)
+        video_to_frames(os.path.join(FLAGS.videos_dir, video), FLAGS.frames_dir, FLAGS.stats_dir, overwrite=False)
 
     frame_paths = list()
     for video in videos:
@@ -198,8 +201,15 @@ def main(_argv):
             if i % FLAGS.detect_every == 0:
                 frame_paths.append(os.path.join(FLAGS.frames_dir, video, frame))
 
-    detect(frame_paths, FLAGS.detections_dir, FLAGS.model_path, FLAGS.batch_size, FLAGS.gpus,
-           FLAGS.save_detection_threshold)
+    # testing contexts
+    ctx = [mx.gpu(int(i)) for i in FLAGS.gpus.split(',') if i.strip()]
+    ctx = ctx if ctx else [mx.cpu()]
+
+    net, transform = prep_net(FLAGS.model_path, FLAGS.batch_size, ctx)
+
+    dataset, loader = prep_data(frame_paths, transform, FLAGS.batch_size, num_workers=4)
+
+    detect(net, dataset, loader, ctx, FLAGS.detections_dir, FLAGS.save_detection_threshold)
 
 
 if __name__ == '__main__':
@@ -209,6 +219,8 @@ if __name__ == '__main__':
                         'Directory to hold the frames as images')
     flags.DEFINE_string('detections_dir', 'data/detections',
                         'Directory to save the detection files')
+    flags.DEFINE_string('stats_dir', 'data/stats',
+                        'Directory to hold the video stats')
 
     flags.DEFINE_string('gpus', '0',
                         'GPU IDs to use. Use comma for multiple eg. 0,1. Default is 0')
