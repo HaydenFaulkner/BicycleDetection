@@ -92,8 +92,8 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
     total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
     # Might be a problem if video has no frames
     if total < 1:
-        print("Check your opencv + ffmpeg installation, can't read videos!!!\n"
-              "\nYou may need to install open cv by source not pip")
+        logging.error("Check your opencv + ffmpeg installation, can't read videos!!!\n"
+                      "\nYou may need to install open cv by source not pip")
         return None
 
     assert total == length-1 or total == length
@@ -109,10 +109,6 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
 
     img_track_snapshots = {}
     vid_track_snapshots = {}
-
-    #current = 0
-    #while True:
-    #    current += 1
 
     for current in tqdm(range(1, length), desc="Visualising video: {}".format(video_filename)):
 
