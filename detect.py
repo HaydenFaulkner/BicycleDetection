@@ -182,10 +182,11 @@ def detect(net, dataset, loader, ctx, detections_dir, save_detection_threshold):
     return detections_dir
 
 
-def main(_argv):
+def detect_wrapper(videos=None):
     # Get a list of videos to process
     if os.path.exists(FLAGS.videos_dir):
-        videos = os.listdir(FLAGS.videos_dir)
+        if not videos:
+            videos = os.listdir(FLAGS.videos_dir)
         logging.info("Will process {} videos from {}".format(len(videos), FLAGS.videos_dir))
     else:
         logging.info("videos_dir does not exist: {}".format(FLAGS.videos_dir))
@@ -210,6 +211,10 @@ def main(_argv):
     dataset, loader = prep_data(frame_paths, transform, FLAGS.batch_size, FLAGS.num_workers)
 
     detect(net, dataset, loader, ctx, FLAGS.detections_dir, FLAGS.save_detection_threshold)
+
+
+def main(_argv):
+    detect_wrapper()
 
 
 if __name__ == '__main__':
