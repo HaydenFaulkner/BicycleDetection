@@ -1,8 +1,5 @@
 """
-Runs the end to end pipeline of:
-Videos to frames
-Detect on frames
-Track on detections
+Used to visualise tracks and detections
 
 """
 from absl import app, flags, logging
