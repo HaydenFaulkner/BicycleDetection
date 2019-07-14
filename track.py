@@ -35,6 +35,11 @@ class KalmanBoxTracker(object):
         self.kf.Q[-1, -1] *= 0.01
         self.kf.Q[4:, 4:] *= 0.01
 
+        self._conf = [-1]
+        if len(bbox) > 4:
+            self._conf = [bbox[0]]
+            bbox = bbox[1:]
+
         self.kf.x[:4] = convert_bbox_to_z(bbox)
         self.time_since_update = 0
         self.id = KalmanBoxTracker.count
@@ -48,6 +53,11 @@ class KalmanBoxTracker(object):
         """
         Updates the state vector with observed bbox.
         """
+
+        if len(bbox) > 4:
+            self._conf.append(bbox[0])
+            bbox = bbox[1:]
+
         self.time_since_update = 0
         # self.history = []
         self.hits += 1
@@ -72,7 +82,10 @@ class KalmanBoxTracker(object):
         """
         Returns the current bounding box estimate.
         """
-        return convert_x_to_bbox(self.kf.x)
+        conf = np.mean(self._conf)
+        box = convert_x_to_bbox(self.kf.x)[0]
+        box = np.append(box, conf)
+        return box
 
 
 class Sort(object):
@@ -126,7 +139,7 @@ class Sort(object):
 
         i = len(self.tracks)
         for trk in reversed(self.tracks):
-            d = trk.get_state()[0]
+            d = trk.get_state()
             if trk.hits >= self.min_hits or self.det_count <= self.min_hits:
                 ret.append(np.concatenate((d, [trk.id + 1])).reshape(1, -1))  # +1 as MOT benchmark requires positive
             i -= 1
@@ -135,7 +148,7 @@ class Sort(object):
                 self.tracks.pop(i)
         if len(ret) > 0:
             return np.concatenate(ret)
-        return np.empty((0, 5))
+        return np.empty((0, 6))
 
 
 def iou(bb_test, bb_gt):
@@ -194,7 +207,7 @@ def associate_detections_to_tracks(detections, tracks, iou_threshold=0.01):
 
     for d, det in enumerate(detections):
         for t, trk in enumerate(tracks):
-            iou_matrix[d, t] = iou(det, trk)
+            iou_matrix[d, t] = iou(det[1:], trk) # ignore the confidence
 
 
     # matched_indices = linear_assignment(-iou_matrix)
@@ -259,9 +272,9 @@ def track(files, detections_dir, stats_dir, tracks_dir,
 
             if d_[1] > track_detection_threshold:
                 if int(d[0]) in d:
-                    detections_[int(d[0])].append(d_[2:])  # add only the bbox, dropping the det id and conf
+                    detections_[int(d[0])].append(d_[1:])  # add only the bbox, dropping the det class id
                 else:
-                    detections_[int(d[0])] = [d_[2:]]
+                    detections_[int(d[0])] = [d_[1:]]
 
         KalmanBoxTracker.count = 0
         tracks = list()
@@ -276,11 +289,11 @@ def track(files, detections_dir, stats_dir, tracks_dir,
                     dets = detections_[current]
 
             for t in tracker.update(dets, det, (width, height)):
-                tracks.append([current, int(t[4]), float(t[0]), float(t[1]), float(t[2]), float(t[3])])
+                tracks.append([current, int(t[4]), float(t[5]), float(t[0]), float(t[1]), float(t[2]), float(t[3])])
 
         with open(os.path.join(tracks_dir, file), 'w') as f:
             for t in tracks:
-                f.write("{},{},{},{},{},{}\n".format(t[0], t[1], t[2], t[3], t[4], t[5]))
+                f.write("{},{},{},{},{},{},{}\n".format(t[0], t[1], t[2], t[3], t[4], t[5], t[6]))
 
 
 def main(_argv):

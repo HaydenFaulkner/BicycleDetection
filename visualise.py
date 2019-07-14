@@ -60,13 +60,13 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir, img_sn
     tracks_ = dict()
     for t in tracks:
         if mult:
-            t_ = [int(t[1]),
-                  float(t[2])*width, float(t[3])*height,
-                  float(t[4])*width, float(t[5])*height]
+            t_ = [int(t[1]), float(t[2]),
+                  float(t[3])*width, float(t[4])*height,
+                  float(t[5])*width, float(t[6])*height]
         else:
-            t_ = [int(t[1]),
-                  float(t[2]), float(t[3]),
-                  float(t[4]), float(t[5])]
+            t_ = [int(t[1]), float(t[2]),
+                  float(t[3]), float(t[4]),
+                  float(t[5]), float(t[6])]
 
         if int(t[0]) in tracks_:
             tracks_[int(t[0])].append(t_)
@@ -118,8 +118,8 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir, img_sn
             if current in tracks:
                 out_frame = cv_plot_bbox(out_path=None,
                                          img=out_frame,
-                                         bboxes=[t[1:] for t in tracks[current]],
-                                         scores=[1 for t in tracks[current]],  # todo should do in tracking code
+                                         bboxes=[t[2:] for t in tracks[current]],
+                                         scores=[t[1] for t in tracks[current]],  # todo should do in tracking code
                                          labels=[t[0] for t in tracks[current]],
                                          thresh=0,
                                          colors=colors,
