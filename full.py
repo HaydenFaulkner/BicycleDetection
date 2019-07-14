@@ -54,7 +54,7 @@ def per_video():
         detect(net, dataset, loader, ctx, FLAGS.detections_dir, FLAGS.save_detection_threshold)
 
         track([video[:-4]+'.txt'], FLAGS.detections_dir, FLAGS.stats_dir, FLAGS.tracks_dir,
-              FLAGS.detect_every, FLAGS.track_detection_threshold)
+              FLAGS.track_detection_threshold, FLAGS.max_age, FLAGS.min_hits)
 
         visualise(os.path.join(FLAGS.videos_dir, video), FLAGS.detections_dir, FLAGS.tracks_dir, FLAGS.stats_dir, FLAGS.vis_dir,
                   FLAGS.img_snapshots_dir, FLAGS.vid_snapshots_dir,
@@ -101,8 +101,8 @@ def per_process():
         logging.info("detections_dir does not exist: {}".format(FLAGS.detections_dir))
         return
 
-    track(detections, FLAGS.detections_dir, FLAGS.stats_dir, FLAGS.tracks_dir,
-          FLAGS.detect_every, FLAGS.track_detection_threshold)
+    track(detections, FLAGS.detections_dir, FLAGS.stats_dir, FLAGS.tracks_dir, FLAGS.track_detection_threshold,
+          FLAGS.max_age, FLAGS.min_hits)
 
     # visualise
     for video in videos:
@@ -148,8 +148,14 @@ if __name__ == '__main__':
                          'The frame interval to perform detection. Default is 5')
     flags.DEFINE_float('save_detection_threshold', 0.5,
                        'The threshold on detections to them being saved to the detection save file. Default is 0.5')
+
     flags.DEFINE_float('track_detection_threshold', 0.5,
                        'The threshold on detections to them being tracked. Default is 0.5')
+    flags.DEFINE_integer('max_age', 40,
+                         'Maximum frames between detections before a track is deleted. Bigger means tracks handle'
+                         'occlusions better but also might overstay their welcome. Default is 40')
+    flags.DEFINE_integer('min_hits', 2,
+                         'Minimum number of detections before a track is displayed. Default is 2')
 
     flags.DEFINE_boolean('display_tracks', True,
                          'Do you want to save a video with the tracks? Default is True')

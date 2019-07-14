@@ -46,7 +46,6 @@ class KalmanBoxTracker(object):
         KalmanBoxTracker.count += 1
         self.history = []
         self.hits = 1
-        self.hit_streak = 0
         self.age = 0
 
     def update(self, bbox):
@@ -61,10 +60,9 @@ class KalmanBoxTracker(object):
         self.time_since_update = 0
         # self.history = []
         self.hits += 1
-        self.hit_streak += 1
         self.kf.update(convert_bbox_to_z(bbox))
 
-    def predict(self, det):
+    def predict(self):
         """
         Advances the state vector and returns the predicted bounding box estimate.
         """
@@ -72,8 +70,6 @@ class KalmanBoxTracker(object):
             self.kf.x[6] *= 0.0
         self.kf.predict()
         self.age += 1
-        if det and self.time_since_update > 0:
-            self.hit_streak = 0
         self.time_since_update += 1
         self.history.append(convert_x_to_bbox(self.kf.x))
         return self.history[-1]
@@ -99,7 +95,7 @@ class Sort(object):
         self.frame_count = 0
         self.det_count = 0
 
-    def update(self, dets, det, img_size):
+    def update(self, dets):
         """
         Params:
           dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
@@ -114,7 +110,7 @@ class Sort(object):
         to_del = []
         ret = []
         for t, trk in enumerate(trks):
-            pos = self.tracks[t].predict(det)[0]
+            pos = self.tracks[t].predict()[0]
             trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
             if np.any(np.isnan(pos)):
                 to_del.append(t)
@@ -122,20 +118,20 @@ class Sort(object):
         for t in reversed(to_del):
             self.tracks.pop(t)
 
-        if det:
-            self.det_count += 1
-            matched, unmatched_dets, unmatched_trks = associate_detections_to_tracks(dets, trks)
+        #if det:
+        self.det_count += 1
+        matched, unmatched_dets, unmatched_trks = associate_detections_to_tracks(dets, trks)
 
-            # update matched tracks with assigned detections
-            for t, trk in enumerate(self.tracks):
-                if t not in unmatched_trks:
-                    d = matched[np.where(matched[:, 1] == t)[0], 0]
-                    trk.update(dets[d[0]])
+        # update matched tracks with assigned detections
+        for t, trk in enumerate(self.tracks):
+            if t not in unmatched_trks:
+                d = matched[np.where(matched[:, 1] == t)[0], 0]
+                trk.update(dets[d[0]])
 
-            # create and initialise new tracks for unmatched detections
-            for i in unmatched_dets:
-                trk = KalmanBoxTracker(dets[i])
-                self.tracks.append(trk)
+        # create and initialise new tracks for unmatched detections
+        for i in unmatched_dets:
+            trk = KalmanBoxTracker(dets[i])
+            self.tracks.append(trk)
 
         i = len(self.tracks)
         for trk in reversed(self.tracks):
@@ -238,14 +234,11 @@ def associate_detections_to_tracks(detections, tracks, iou_threshold=0.01):
     return matches, np.array(unmatched_detections), np.array(unmatched_tracks)
 
 
-def track(files, detections_dir, stats_dir, tracks_dir,
-          every, track_detection_threshold):
+def track(files, detections_dir, stats_dir, tracks_dir, track_detection_threshold, max_age=50, min_hits=2):
 
     os.makedirs(tracks_dir, exist_ok=True)
 
     for file in tqdm(files, desc='Running tracker'):
-        max_age = 30
-        min_hits = 2
         tracker = Sort(max_age=max_age, min_hits=min_hits)
 
         with open(os.path.join(detections_dir, file), 'r') as f:
@@ -281,14 +274,10 @@ def track(files, detections_dir, stats_dir, tracks_dir,
         for current in range(1, length+1):
 
             dets = []
-            det = False
+            if current in detections_:
+                dets = detections_[current]
 
-            if current % every == 1:
-                det = True
-                if current in detections_:
-                    dets = detections_[current]
-
-            for t in tracker.update(dets, det, (width, height)):
+            for t in tracker.update(dets):
                 tracks.append([current, int(t[5]), float(t[4]), float(t[0]), float(t[1]), float(t[2]), float(t[3])])
 
         with open(os.path.join(tracks_dir, file), 'w') as f:
@@ -305,8 +294,8 @@ def main(_argv):
         logging.info("detections_dir does not exist: {}".format(FLAGS.detections_dir))
         return
 
-    track(detections, FLAGS.detections_dir, FLAGS.stats_dir, FLAGS.tracks_dir,
-          FLAGS.detect_every, FLAGS.track_detection_threshold)
+    track(detections, FLAGS.detections_dir, FLAGS.stats_dir, FLAGS.tracks_dir, FLAGS.track_detection_threshold,
+          FLAGS.max_age, FLAGS.min_hits)
 
 
 if __name__ == '__main__':
@@ -317,12 +306,14 @@ if __name__ == '__main__':
     flags.DEFINE_string('tracks_dir', 'data/tracks',
                         'Directory to save the track files')
 
-    flags.DEFINE_integer('detect_every', 5,
-                         'The frame interval to perform detection. Default is 5')
     flags.DEFINE_float('track_detection_threshold', 0.5,
                        'The threshold on detections to them being tracked. Default is 0.5')
 
-
+    flags.DEFINE_integer('max_age', 40,
+                         'Maximum frames between detections before a track is deleted. Bigger means tracks handle'
+                         'occlusions better but also might overstay their welcome. Default is 40')
+    flags.DEFINE_integer('min_hits', 2,
+                         'Minimum number of detections before a track is displayed. Default is 2')
     try:
         app.run(main)
     except SystemExit:
