@@ -36,7 +36,7 @@ def per_video():
         return
 
     for i, video in enumerate(videos):
-        print("Video ({}) {} of {}".format(video, i, len(videos)))
+        print("Video ({}) {} of {}".format(video, i+1, len(videos)))
         video_to_frames(os.path.join(FLAGS.videos_dir, video), FLAGS.frames_dir, FLAGS.stats_dir)
 
         frame_paths = list()

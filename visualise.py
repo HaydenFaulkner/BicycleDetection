@@ -99,7 +99,7 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
               "\nYou may need to install open cv by source not pip")
         return None
 
-    assert total == length-1
+    assert total == length-1 or total == length
 
     if display_detections or display_tracks:
         full_out_video = cv2.VideoWriter("%s_tracked.mp4" % os.path.join(vis_dir, video_filename[:-4]),
