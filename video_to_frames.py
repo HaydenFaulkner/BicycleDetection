@@ -29,18 +29,15 @@ def video_to_frames(video_path, frames_dir, stats_dir, overwrite=True):
         return None
 
     # Let's go through the video and save the frames
-    current = 0
-    while True:
+    for current in range(total):
         flag, frame = capture.read()
-        current += 1
-        if flag == 0 and current < total-2:
+        if flag == 0:
             # print("frame %d error flag" % current)
             continue
-            #break
         if frame is None:
             break
         height, width, _ = frame.shape
-        cv2.imwrite(os.path.join(frames_dir, video_filename, "{:010d}.jpg".format(current)), frame)
+        cv2.imwrite(os.path.join(frames_dir, video_filename, "{:010d}.jpg".format(current+1)), frame)
 
     os.makedirs(stats_dir, exist_ok=True)
     with open(os.path.join(stats_dir, video_filename[:-4]+'.txt'), 'w') as f:
