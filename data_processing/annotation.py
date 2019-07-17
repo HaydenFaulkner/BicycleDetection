@@ -18,19 +18,16 @@ def organise_data():
     :return: int_list, the list of common files that we keep
     """
     # Get the root of the project, and then the data dir
-    root = os.path.dirname(os.path.abspath(__file__))
-    root = root[:root.rfind('BicycleDetection')+len('BicycleDetection')+1]
-    root = os.path.join(root, 'data')
-    root = '/media/hayden/CASR_ACVT/data' ##################################################### TODO REMOVE BEFORE HANDOVER
+    root = 'data'
     print("Find and copy all the annotation files")
     os.makedirs(os.path.join(root, 'filtered', 'annotations'))
     cmd = "find " + root + "/unfiltered/. -name \*.saa -exec cp -v {} " + root + "/filtered/annotations/ \;"
-    process = subprocess.call(cmd, shell=True)
+    _ = subprocess.call(cmd, shell=True)
 
     print("Find and copy all the video files")
     os.makedirs(os.path.join(root, 'filtered', 'videos'))
     cmd = "find " + root + "/unfiltered/. -name \*.mp4 -exec cp -v {} " + root + "/filtered/videos/ \;"
-    process = subprocess.call(cmd, shell=True)
+    _ = subprocess.call(cmd, shell=True)
 
     print("Removing files that don't have corresponding annotations or videos")
     ann_list = os.listdir(os.path.join(root, 'filtered', 'annotations'))

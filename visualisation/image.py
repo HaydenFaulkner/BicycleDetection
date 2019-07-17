@@ -100,16 +100,16 @@ def cv_plot_bbox(img, bboxes, out_path=None,
 
         cv2.rectangle(img, (xmin, ymin), (xmax, ymax), colors[cls_id], 2)
 
-        # if class_names is not None and cls_id < len(class_names):
-        #     class_name = class_names[cls_id]
-        # else:
-        #     class_name = str(cls_id) if cls_id >= 0 else ''
+        if class_names is not None and cls_id < len(class_names):
+            class_name = class_names[cls_id]
+        else:
+            class_name = str(cls_id) if cls_id >= 0 else ''
+
+        score = '{:.3f}'.format(float(scores[i])) if scores is not None else ''
         #
-        # score = '{:.3f}'.format(float(scores[i])) if scores is not None else ''
-        #
-        # if class_name or score:
-        #
-        #     draw.text((xmin, ymin - 2), '{:s} {:s}'.format(class_name, score), fill=(255, 0, 0, 255))
+        if class_name or score:
+            cv2.putText(img, '{:s} {:s}'.format(class_name, score), (xmin, ymin - 2), cv2.FONT_HERSHEY_SIMPLEX, .5, colors[cls_id], 2)
+            # draw.text((xmin, ymin - 2), '{:s} {:s}'.format(class_name, score), fill=(255, 0, 0, 255))
 
     if out_path:
         cv2.imwrite(out_path, img)
