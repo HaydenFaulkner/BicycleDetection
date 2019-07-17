@@ -133,6 +133,7 @@ def prep_net(model_path, batch_size, ctx):
 
 def detect(net, dataset, loader, ctx, detections_dir, save_detection_threshold):
 
+    detections_dir = os.path.normpath(detections_dir)  # good for win compat
     os.makedirs(detections_dir, exist_ok=True)
 
     net.set_nms(nms_thresh=0.45, nms_topk=400)
@@ -165,8 +166,8 @@ def detect(net, dataset, loader, ctx, detections_dir, save_detection_threshold):
                 score = score.flat[valid_pred]
                 for id_, box_, score_ in zip(id, box, score):
                     if score_ > save_detection_threshold:
-                        vid_id = dataset.sample_path(int(sidx)).split("/")[-2]
-                        frame = int(dataset.sample_path(int(sidx)).split("/")[-1][:-4])
+                        vid_id = os.path.normpath(dataset.sample_path(int(sidx))).split(os.path.sep)[-2]
+                        frame = int(os.path.normpath(dataset.sample_path(int(sidx))).split(os.path.sep)[-1][:-4])
                         if vid_id in boxes:
                             boxes[vid_id].append([frame, id_, score_]+list(box_))
                         else:
@@ -184,23 +185,23 @@ def detect(net, dataset, loader, ctx, detections_dir, save_detection_threshold):
 
 def detect_wrapper(videos=None):
     # Get a list of videos to process
-    if os.path.exists(FLAGS.videos_dir):
+    if os.path.exists(os.path.normpath(FLAGS.videos_dir)):
         if not videos:
-            videos = os.listdir(FLAGS.videos_dir)
-        logging.info("Will process {} videos from {}".format(len(videos), FLAGS.videos_dir))
+            videos = os.listdir(os.path.normpath(FLAGS.videos_dir))
+        logging.info("Will process {} videos from {}".format(len(videos), os.path.normpath(FLAGS.videos_dir)))
     else:
-        logging.info("videos_dir does not exist: {}".format(FLAGS.videos_dir))
+        logging.info("videos_dir does not exist: {}".format(os.path.normpath(FLAGS.videos_dir)))
         return
 
     # generate frames if need be, if they exist don't do
     for video in tqdm(videos, desc='Generating frames'):
-        video_to_frames(os.path.join(FLAGS.videos_dir, video), FLAGS.frames_dir, FLAGS.stats_dir, overwrite=False)
+        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir, overwrite=False)
 
     frame_paths = list()
     for video in videos:
-        for i, frame in enumerate(os.listdir(os.path.join(FLAGS.frames_dir, video))):
+        for i, frame in enumerate(os.listdir(os.path.join(os.path.normpath(FLAGS.frames_dir), video))):
             if i % FLAGS.detect_every == 0:
-                frame_paths.append(os.path.join(FLAGS.frames_dir, video, frame))
+                frame_paths.append(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame))
 
     # testing contexts
     ctx = [mx.gpu(int(i)) for i in FLAGS.gpus.split(',') if i.strip()]

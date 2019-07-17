@@ -236,6 +236,10 @@ def associate_detections_to_tracks(detections, tracks, iou_threshold=0.01):
 
 def track(files, detections_dir, stats_dir, tracks_dir, track_detection_threshold, max_age=50, min_hits=2):
 
+    detections_dir = os.path.normpath(detections_dir)
+    stats_dir = os.path.normpath(stats_dir)
+    tracks_dir = os.path.normpath(tracks_dir)
+
     os.makedirs(tracks_dir, exist_ok=True)
 
     for file in tqdm(files, desc='Running tracker'):
@@ -287,11 +291,12 @@ def track(files, detections_dir, stats_dir, tracks_dir, track_detection_threshol
 
 def main(_argv):
     # Get a list of detections to process
-    if os.path.exists(FLAGS.detections_dir):
-        detections = os.listdir(FLAGS.detections_dir)
-        logging.info("Will process {} detections files from {}".format(len(detections), FLAGS.detections_dir))
+    if os.path.exists(os.path.normpath(FLAGS.detections_dir)):
+        detections = os.listdir(os.path.normpath(FLAGS.detections_dir))
+        logging.info("Will process {} detections files from {}".format(len(detections),
+                                                                       os.path.normpath(FLAGS.detections_dir)))
     else:
-        logging.info("detections_dir does not exist: {}".format(FLAGS.detections_dir))
+        logging.info("detections_dir does not exist: {}".format(os.path.normpath(FLAGS.detections_dir)))
         return
 
     track(detections, FLAGS.detections_dir, FLAGS.stats_dir, FLAGS.tracks_dir, FLAGS.track_detection_threshold,

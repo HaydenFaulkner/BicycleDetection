@@ -10,6 +10,9 @@ from tqdm import tqdm
 
 
 def video_to_frames(video_path, frames_dir, stats_dir, overwrite=True):
+    video_path = os.path.normpath(video_path)
+    frames_dir = os.path.normpath(frames_dir)
+    stats_dir = os.path.normpath(stats_dir)
 
     video_path, video_filename = os.path.split(video_path)
 
@@ -29,7 +32,7 @@ def video_to_frames(video_path, frames_dir, stats_dir, overwrite=True):
         return None
 
     # Let's go through the video and save the frames
-    for current in range(total):
+    for current in tqdm(range(total), desc='Extracting Frames'):
         flag, frame = capture.read()
         if flag == 0:
             # print("frame %d error flag" % current)
@@ -48,16 +51,16 @@ def video_to_frames(video_path, frames_dir, stats_dir, overwrite=True):
 
 def main(_argv):
     # Get a list of videos to process
-    if os.path.exists(FLAGS.videos_dir):
+    if os.path.exists(os.path.normpath(FLAGS.videos_dir)):
         videos = os.listdir(FLAGS.videos_dir)
-        logging.info("Will process {} videos from {}".format(len(videos), FLAGS.videos_dir))
+        logging.info("Will process {} videos from {}".format(len(videos), os.path.normpath(FLAGS.videos_dir)))
     else:
-        logging.info("videos_dir does not exist: {}".format(FLAGS.videos_dir))
+        logging.info("videos_dir does not exist: {}".format(os.path.normpath(FLAGS.videos_dir)))
         return
 
     # generate frames
     for video in tqdm(videos, desc='Generating frames'):
-        video_to_frames(os.path.join(FLAGS.videos_dir, video), FLAGS.frames_dir, FLAGS.stats_dir)
+        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir)
 
 
 if __name__ == '__main__':

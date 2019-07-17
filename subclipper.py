@@ -21,6 +21,12 @@ from visualisation.image import cv_plot_bbox
 def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around='detections',
             display_detections=False, display_tracks=False, start_buffer=100, end_buffer=50):
 
+    video_path = os.path.normpath(video_path)
+    detections_dir = os.path.normpath(detections_dir)
+    tracks_dir = os.path.normpath(tracks_dir)
+    stats_dir = os.path.normpath(stats_dir)
+    clip_dir = os.path.normpath(clip_dir)
+
     assert around == 'detections' or around == 'tracks'
 
     colors = dict()
@@ -36,7 +42,8 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
         logging.info("Stats file {} does not exist so will make it first...".format(os.path.join(stats_dir,
                                                                                                  txt_filename)))
 
-        video_to_frames(os.path.join(FLAGS.videos_dir, video_filename), FLAGS.frames_dir, FLAGS.stats_dir, overwrite=False)
+        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video_filename), FLAGS.frames_dir,
+                        FLAGS.stats_dir, overwrite=False)
 
     with open(os.path.join(stats_dir, txt_filename), 'r') as f:
         video_id, width, height, length = f.read().rstrip().split(',')
@@ -209,16 +216,17 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
 
 def main(_argv):
     # Get a list of videos to visualise
-    if os.path.exists(FLAGS.videos_dir):
-        videos = os.listdir(FLAGS.videos_dir)
-        logging.info("Will process {} videos from {}".format(len(videos), FLAGS.videos_dir))
+    if os.path.exists(os.path.normpath(FLAGS.videos_dir)):
+        videos = os.listdir(os.path.normpath(FLAGS.videos_dir))
+        logging.info("Will process {} videos from {}".format(len(videos), os.path.normpath(FLAGS.videos_dir)))
     else:
-        logging.info("videos_dir does not exist: {}".format(FLAGS.videos_dir))
+        logging.info("videos_dir does not exist: {}".format(os.path.normpath(FLAGS.videos_dir)))
         return
 
     # generate frames
     for video in videos:
-        subclip(os.path.join(FLAGS.videos_dir, video), FLAGS.detections_dir, FLAGS.tracks_dir, FLAGS.stats_dir, FLAGS.clips_dir,
+        subclip(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.detections_dir, FLAGS.tracks_dir,
+                FLAGS.stats_dir, FLAGS.clips_dir,
                 FLAGS.around, FLAGS.display_detections, FLAGS.display_tracks, FLAGS.start_buffer, FLAGS.end_buffer)
 
 
