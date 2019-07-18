@@ -60,11 +60,12 @@ def per_video():
         track([video[:-4]+'.txt'], FLAGS.detections_dir, FLAGS.stats_dir, FLAGS.tracks_dir,
               FLAGS.track_detection_threshold, FLAGS.max_age, FLAGS.min_hits)
 
-        visualise(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.detections_dir,
+        visualise(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.detections_dir,
                   FLAGS.tracks_dir, FLAGS.stats_dir, FLAGS.vis_dir,
-                  FLAGS.img_snapshots_dir, FLAGS.vid_snapshots_dir,
+                  FLAGS.img_snapshots_dir, FLAGS.vid_snapshots_dir, FLAGS.around,
+                  FLAGS.start_buffer, FLAGS.end_buffer,
                   FLAGS.display_tracks, FLAGS.display_detections, FLAGS.display_trails, FLAGS.save_static_trails,
-                  FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots)
+                  FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots, FLAGS.summary)
 
 
 def per_process():
@@ -112,11 +113,12 @@ def per_process():
 
     # visualise
     for video in videos:
-        visualise(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.detections_dir,
+        visualise(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.detections_dir,
                   FLAGS.tracks_dir, FLAGS.stats_dir, FLAGS.vis_dir,
-                  FLAGS.img_snapshots_dir, FLAGS.vid_snapshots_dir,
+                  FLAGS.img_snapshots_dir, FLAGS.vid_snapshots_dir, FLAGS.around,
+                  FLAGS.start_buffer, FLAGS.end_buffer,
                   FLAGS.display_tracks, FLAGS.display_detections, FLAGS.display_trails, FLAGS.save_static_trails,
-                  FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots)
+                  FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots, FLAGS.summary)
 
 
 if __name__ == '__main__':
@@ -131,7 +133,7 @@ if __name__ == '__main__':
                         'Directory to hold the video stats')
     flags.DEFINE_string('detections_dir', 'data/detections',
                         'Directory to save the detection files')
-    flags.DEFINE_string('vis_dir', 'data/vis',
+    flags.DEFINE_string('vis_dir', 'data/summaries',
                         'Directory to hold the video visualisations')
     flags.DEFINE_string('tracks_dir', 'data/tracks',
                         'Directory to save the track files')
@@ -151,8 +153,8 @@ if __name__ == '__main__':
     flags.DEFINE_string('model_path', 'models/0001/yolo3_mobilenet1_0_cycle_best.params',
                         'Path to the detection model to use')
 
-    flags.DEFINE_integer('detect_every', 5,
-                         'The frame interval to perform detection. Default is 5')
+    flags.DEFINE_integer('detect_every', 2,
+                         'The frame interval to perform detection. Default is 2')
     flags.DEFINE_float('save_detection_threshold', 0.5,
                        'The threshold on detections to them being saved to the detection save file. Default is 0.5')
 
@@ -163,6 +165,13 @@ if __name__ == '__main__':
                          'occlusions better but also might overstay their welcome. Default is 40')
     flags.DEFINE_integer('min_hits', 2,
                          'Minimum number of detections before a track is displayed. Default is 2')
+
+    flags.DEFINE_string('around', 'detections',
+                        'Base the shortening off of the detections or tracks?')
+    flags.DEFINE_integer('start_buffer', 100,
+                         'The number of frames to save pre-detection or track appearance. Default is 100')
+    flags.DEFINE_integer('end_buffer', 50,
+                         'The number of frames to save post-detection or track appearance. Default is 50')
 
     flags.DEFINE_boolean('display_tracks', True,
                          'Do you want to save a video with the tracks? Default is True')
@@ -176,7 +185,7 @@ if __name__ == '__main__':
                          'Do you want to save image snapshots for each track? Default is True')
     flags.DEFINE_boolean('generate_video_snapshots', True,
                          'Do you want to save video snapshots for each track? Default is True')
-    flags.DEFINE_boolean('generate_summary', True,
+    flags.DEFINE_boolean('summary', True,
                          'Do you want to only save out the summary video? Default is True')
 
     try:

@@ -16,12 +16,14 @@ from tqdm import tqdm
 from visualisation.image import cv_plot_bbox
 
 
-def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
-              img_snapshots_dir, vid_snapshots_dir,
+def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis_dir,
+              img_snapshots_dir, vid_snapshots_dir, around='detections',
+              start_buffer=100, end_buffer=50,
               display_tracks=True, display_detections=True, display_trails=True, save_static_trails=True,
-              generate_image_snapshots=True, generate_video_snapshots=True):
+              generate_image_snapshots=True, generate_video_snapshots=True, summary=True):
 
     video_path = os.path.normpath(video_path)
+    frames_dir = os.path.normpath(frames_dir)
     detections_dir = os.path.normpath(detections_dir)
     tracks_dir = os.path.normpath(tracks_dir)
     stats_dir = os.path.normpath(stats_dir)
@@ -48,6 +50,7 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
     with open(os.path.join(stats_dir, txt_filename), 'r') as f:
         video_id, width, height, length = f.read().rstrip().split(',')
 
+    # load detections
     with open(os.path.join(detections_dir, txt_filename), 'r') as f:
         detections = [line.rstrip().split(',') for line in f.readlines()]
 
@@ -73,6 +76,7 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
             detections_[int(d[0])] = [d_]
     detections = detections_
 
+    # load tracks
     with open(os.path.join(tracks_dir, txt_filename), 'r') as f:
         tracks = [line.rstrip().split(',') for line in f.readlines()]
 
@@ -94,21 +98,26 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
 
     tracks = tracks_
 
-    capture = cv2.VideoCapture(os.path.join(video_path, video_filename))
+    # # load video
+    # capture = cv2.VideoCapture(os.path.join(video_path, video_filename))
+    #
+    # # Get the total number of frames
+    # total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    # # Might be a problem if video has no frames
+    # if total < 1:
+    #     logging.error("Check your opencv + ffmpeg installation, can't read videos!!!\n"
+    #                   "\nYou may need to install open cv by source not pip")
+    #     return None
+    #
+    # assert total == length-1 or total == length or total == length+1
 
-    # Get the total number of frames
-    total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
-    # Might be a problem if video has no frames
-    if total < 1:
-        logging.error("Check your opencv + ffmpeg installation, can't read videos!!!\n"
-                      "\nYou may need to install open cv by source not pip")
-        return None
+    if summary:
+        name = 'summary'
+    else:
+        name = 'full'
 
-    assert total == length-1 or total == length or total == length+1
-
-    if display_detections or display_tracks:
-        full_out_video = cv2.VideoWriter("%s_tracked.mp4" % os.path.join(vis_dir, video_filename[:-4]),
-                                         cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), 25, (width, height))
+    full_out_video = cv2.VideoWriter("{}_{}.mp4".format(os.path.join(vis_dir, video_filename[:-4]), name),
+                                     cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), 25, (width, height))
 
     track_trails = queue.Queue(maxsize=50)
     if save_static_trails:
@@ -118,22 +127,45 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
     img_track_snapshots = {}
     vid_track_snapshots = {}
 
+    since = 0
+    out_count = 0
     for current in tqdm(range(1, length), desc="Visualising video: {}".format(video_filename)):
 
-        flag, frame = capture.read()
-        if flag == 0:
-            # print("frame %d error flag" % current)
-            continue
+        forward_buffer = False
+        if around == 'tracks':
+            if current not in tracks:
+                since += 1
+            else:
+                since = 0
+            for check_forward in range(current, current + start_buffer):
+                if check_forward in tracks:
+                    forward_buffer = True
+                    break
+
+        elif around == 'detections':
+            if current not in detections:
+                since += 1
+            else:
+                since = 0
+            for check_forward in range(current, current + start_buffer):
+                if check_forward in detections:
+                    forward_buffer = True
+                    break
+        else:
+            ValueError()
+
+        if summary and not forward_buffer and since > end_buffer:
+            continue  # we don't want to save out this frame
+
+        # flag, frame = capture.read()
+        # if flag == 0:
+        #     # print("frame %d error flag" % current)
+        #     continue
+        frame = cv2.imread(os.path.join(frames_dir, video_filename, "{:010d}.jpg".format(current)))  # lets load frame images now, see if its faster
         if frame is None:
             break
         if save_static_trails and avg_frame.shape[0] < 250 and current % 50 == 0 and frame.shape == avg_frame.shape[1:]:
             avg_frame = np.vstack((avg_frame, np.expand_dims(frame, 0)))
-
-        if flag == 0 and current < total-2:
-            # print("frame %d error flag" % current)
-            continue
-        if frame is None:
-            break
 
         v_height, v_width, _ = frame.shape
         assert v_height == height
@@ -190,8 +222,9 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
                                          colors={0: (1, 255, 1)},
                                          class_names=['cyclist'])
 
-        if display_detections or display_tracks:
-            full_out_video.write(out_frame)
+        # write out the main frame
+        full_out_video.write(out_frame)
+        out_count += 1
 
         if img_snapshots_dir and current in tracks:
             for t in tracks[current]:
@@ -202,7 +235,7 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
                 else:
                     h, w, _ = img_track_snapshots[t[0]].shape
                     # replace if has a bigger area, we are assuming the bigger the better
-                    if (x2 - x1) * (y2 - y1) > w * h:
+                    if (x2 - x1) * (y2 - y1) > w * h and x1 > 0 and y1 > 0 and x2 < width and y2 < height:
                         img_track_snapshots[t[0]] = frame[y1:y2, x1:x2, :]
 
         if vid_snapshots_dir and current in tracks:
@@ -241,8 +274,11 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
 
                 vid_track_snapshots[tid].write(clean_frame)
 
-    if display_detections or display_tracks and full_out_video is not None:
+    if full_out_video is not None:
         full_out_video.release()
+
+    logging.info("\n\nOriginal video length: {}\nNew video length: {} ({}% of original)".format(
+        length, out_count, int(100*float(out_count)/length)))
 
     # write out the snapshot images
     if img_snapshots_dir:
@@ -276,12 +312,12 @@ def main(_argv):
 
     # generate frames
     for video in videos:
-        visualise(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.detections_dir,
+        visualise(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.detections_dir,
                   FLAGS.tracks_dir, FLAGS.stats_dir, FLAGS.vis_dir,
-                  FLAGS.img_snapshots_dir, FLAGS.vid_snapshots_dir,
+                  FLAGS.img_snapshots_dir, FLAGS.vid_snapshots_dir, FLAGS.around,
+                  FLAGS.start_buffer, FLAGS.end_buffer,
                   FLAGS.display_tracks, FLAGS.display_detections, FLAGS.display_trails, FLAGS.save_static_trails,
-                  FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots)
-
+                  FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots, FLAGS.summary)
 
 if __name__ == '__main__':
     flags.DEFINE_string('videos_dir', 'data/unprocessed',
@@ -301,6 +337,13 @@ if __name__ == '__main__':
     flags.DEFINE_string('vid_snapshots_dir', 'data/snapshots/videos',
                         'Directory to save video snapshots, if the flag --video_snapshots is used')
 
+    flags.DEFINE_string('around', 'detections',
+                        'Base the shortening off of the detections or tracks?')
+    flags.DEFINE_integer('start_buffer', 100,
+                         'The number of frames to save pre-detection or track appearance. Default is 100')
+    flags.DEFINE_integer('end_buffer', 50,
+                         'The number of frames to save post-detection or track appearance. Default is 50')
+
     flags.DEFINE_boolean('display_tracks', True,
                          'Do you want to save a video with the tracks? Default is True')
     flags.DEFINE_boolean('display_detections', True,
@@ -313,6 +356,8 @@ if __name__ == '__main__':
                          'Do you want to save image snapshots for each track? Default is True')
     flags.DEFINE_boolean('generate_video_snapshots', True,
                          'Do you want to save video snapshots for each track? Default is True')
+    flags.DEFINE_boolean('summary', True,
+                         'Do you want to only save out the summary video? Default is True')
 
     try:
         app.run(main)
