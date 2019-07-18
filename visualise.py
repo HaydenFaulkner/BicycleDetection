@@ -276,6 +276,8 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
 
     if full_out_video is not None:
         full_out_video.release()
+    if capture is not None:
+        capture.release()
 
     logging.info("\n\nOriginal video length: {}\nNew video length: {} ({}% of original)".format(
         length, out_count, int(100*float(out_count)/length)))
