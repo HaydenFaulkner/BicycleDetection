@@ -9,7 +9,7 @@ import os
 from tqdm import tqdm
 
 
-def video_to_frames(video_path, frames_dir, stats_dir, overwrite=True):
+def video_to_frames(video_path, frames_dir, stats_dir, overwrite=False):
     video_path = os.path.normpath(video_path)
     frames_dir = os.path.normpath(frames_dir)
     stats_dir = os.path.normpath(stats_dir)
