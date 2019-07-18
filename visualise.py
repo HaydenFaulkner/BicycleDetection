@@ -21,6 +21,14 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
               display_tracks=True, display_detections=True, display_trails=True, save_static_trails=True,
               generate_image_snapshots=True, generate_video_snapshots=True):
 
+    video_path = os.path.normpath(video_path)
+    detections_dir = os.path.normpath(detections_dir)
+    tracks_dir = os.path.normpath(tracks_dir)
+    stats_dir = os.path.normpath(stats_dir)
+    vis_dir = os.path.normpath(vis_dir)
+    img_snapshots_dir = os.path.normpath(img_snapshots_dir)
+    vid_snapshots_dir = os.path.normpath(vid_snapshots_dir)
+
     if not generate_image_snapshots:
         img_snapshots_dir = None
     if not generate_video_snapshots:
@@ -255,16 +263,17 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
 
 def main(_argv):
     # Get a list of videos to visualise
-    if os.path.exists(FLAGS.videos_dir):
-        videos = os.listdir(FLAGS.videos_dir)
-        logging.info("Will process {} videos from {}".format(len(videos), FLAGS.videos_dir))
+    if os.path.exists(os.path.normpath(FLAGS.videos_dir)):
+        videos = os.listdir(os.path.normpath(FLAGS.videos_dir))
+        logging.info("Will process {} videos from {}".format(len(videos), os.path.normpath(FLAGS.videos_dir)))
     else:
-        logging.info("videos_dir does not exist: {}".format(FLAGS.videos_dir))
+        logging.info("videos_dir does not exist: {}".format(os.path.normpath(FLAGS.videos_dir)))
         return
 
     # generate frames
     for video in videos:
-        visualise(os.path.join(FLAGS.videos_dir, video), FLAGS.detections_dir, FLAGS.tracks_dir, FLAGS.stats_dir, FLAGS.vis_dir,
+        visualise(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.detections_dir,
+                  FLAGS.tracks_dir, FLAGS.stats_dir, FLAGS.vis_dir,
                   FLAGS.img_snapshots_dir, FLAGS.vid_snapshots_dir,
                   FLAGS.display_tracks, FLAGS.display_detections, FLAGS.display_trails, FLAGS.save_static_trails,
                   FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots)

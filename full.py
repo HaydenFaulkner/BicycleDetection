@@ -28,26 +28,26 @@ def main(_argv):
 def per_video():
 
     # Get a list of videos to process
-    if os.path.exists(FLAGS.videos_dir):
+    if os.path.exists(os.path.normpath(FLAGS.videos_dir)):
         videos = os.listdir(FLAGS.videos_dir)
-        logging.info("Will process {} videos from {}".format(len(videos), FLAGS.videos_dir))
+        logging.info("Will process {} videos from {}".format(len(videos), os.path.normpath(FLAGS.videos_dir)))
     else:
-        logging.info("videos_dir does not exist: {}".format(FLAGS.videos_dir))
+        logging.info("videos_dir does not exist: {}".format(os.path.normpath(FLAGS.videos_dir)))
         return
 
     for i, video in enumerate(videos):
         print("Video ({}) {} of {}".format(video, i+1, len(videos)))
-        video_to_frames(os.path.join(FLAGS.videos_dir, video), FLAGS.frames_dir, FLAGS.stats_dir)
+        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir)
 
         frame_paths = list()
-        for i, frame in enumerate(os.listdir(os.path.join(FLAGS.frames_dir, video))):
+        for i, frame in enumerate(os.listdir(os.path.join(os.path.normpath(FLAGS.frames_dir), video))):
             if i % FLAGS.detect_every == 0:
-                frame_paths.append(os.path.join(FLAGS.frames_dir, video, frame))
+                frame_paths.append(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame))
 
         ctx = [mx.gpu(int(i)) for i in FLAGS.gpus.split(',') if i.strip()]
         ctx = ctx if ctx else [mx.cpu()]
 
-        net, transform = prep_net(FLAGS.model_path, FLAGS.batch_size, ctx)
+        net, transform = prep_net(os.path.normpath(FLAGS.model_path), FLAGS.batch_size, ctx)
 
         dataset, loader = prep_data(frame_paths, transform, FLAGS.batch_size, FLAGS.num_workers)
 
@@ -56,7 +56,8 @@ def per_video():
         track([video[:-4]+'.txt'], FLAGS.detections_dir, FLAGS.stats_dir, FLAGS.tracks_dir,
               FLAGS.track_detection_threshold, FLAGS.max_age, FLAGS.min_hits)
 
-        visualise(os.path.join(FLAGS.videos_dir, video), FLAGS.detections_dir, FLAGS.tracks_dir, FLAGS.stats_dir, FLAGS.vis_dir,
+        visualise(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.detections_dir,
+                  FLAGS.tracks_dir, FLAGS.stats_dir, FLAGS.vis_dir,
                   FLAGS.img_snapshots_dir, FLAGS.vid_snapshots_dir,
                   FLAGS.display_tracks, FLAGS.display_detections, FLAGS.display_trails, FLAGS.save_static_trails,
                   FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots)
@@ -65,40 +66,41 @@ def per_video():
 def per_process():
 
     # Get a list of videos to process
-    if os.path.exists(FLAGS.videos_dir):
-        videos = os.listdir(FLAGS.videos_dir)
-        logging.info("Will process {} videos from {}".format(len(videos), FLAGS.videos_dir))
+    if os.path.exists(os.path.normpath(FLAGS.videos_dir)):
+        videos = os.listdir(os.path.normpath(FLAGS.videos_dir))
+        logging.info("Will process {} videos from {}".format(len(videos), os.path.normpath(FLAGS.videos_dir)))
     else:
-        logging.info("videos_dir does not exist: {}".format(FLAGS.videos_dir))
+        logging.info("videos_dir does not exist: {}".format(os.path.normpath(FLAGS.videos_dir)))
         return
 
     # generate frames
     for video in tqdm(videos, desc='Generating frames'):
-        video_to_frames(os.path.join(FLAGS.videos_dir, video), FLAGS.frames_dir, FLAGS.stats_dir)
+        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir)
 
     # make a frame list to build a detection dataset
     frame_paths = list()
     for video in videos:
-        for i, frame in enumerate(os.listdir(os.path.join(FLAGS.frames_dir, video))):
+        for i, frame in enumerate(os.listdir(os.path.join(os.path.normpath(FLAGS.frames_dir), video))):
             if i % FLAGS.detect_every == 0:
-                frame_paths.append(os.path.join(FLAGS.frames_dir, video, frame))
+                frame_paths.append(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame))
 
     # testing contexts
     ctx = [mx.gpu(int(i)) for i in FLAGS.gpus.split(',') if i.strip()]
     ctx = ctx if ctx else [mx.cpu()]
 
-    net, transform = prep_net(FLAGS.model_path, FLAGS.batch_size, ctx)
+    net, transform = prep_net(os.path.normpath(FLAGS.model_path), FLAGS.batch_size, ctx)
 
     dataset, loader = prep_data(frame_paths, transform, FLAGS.batch_size, FLAGS.num_workers)
 
     detect(net, dataset, loader, ctx, FLAGS.detections_dir, FLAGS.save_detection_threshold)
 
     # Get a list of detections to process
-    if os.path.exists(FLAGS.detections_dir):
+    if os.path.exists(os.path.normpath(FLAGS.detections_dir)):
         detections = os.listdir(FLAGS.detections_dir)
-        logging.info("Will process {} detections files from {}".format(len(detections), FLAGS.detections_dir))
+        logging.info("Will process {} detections files from {}".format(len(detections),
+                                                                       os.path.normpath(FLAGS.detections_dir)))
     else:
-        logging.info("detections_dir does not exist: {}".format(FLAGS.detections_dir))
+        logging.info("detections_dir does not exist: {}".format(os.path.normpath(FLAGS.detections_dir)))
         return
 
     track(detections, FLAGS.detections_dir, FLAGS.stats_dir, FLAGS.tracks_dir, FLAGS.track_detection_threshold,
@@ -106,7 +108,8 @@ def per_process():
 
     # visualise
     for video in videos:
-        visualise(os.path.join(FLAGS.videos_dir, video), FLAGS.detections_dir, FLAGS.tracks_dir, FLAGS.stats_dir, FLAGS.vis_dir,
+        visualise(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.detections_dir,
+                  FLAGS.tracks_dir, FLAGS.stats_dir, FLAGS.vis_dir,
                   FLAGS.img_snapshots_dir, FLAGS.vid_snapshots_dir,
                   FLAGS.display_tracks, FLAGS.display_detections, FLAGS.display_trails, FLAGS.save_static_trails,
                   FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots)
