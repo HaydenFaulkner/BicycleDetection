@@ -99,7 +99,7 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
     tracks = tracks_
 
     # # load video
-    # capture = cv2.VideoCapture(os.path.join(video_path, video_filename))
+    capture = cv2.VideoCapture(os.path.join(video_path, video_filename))
     #
     # # Get the total number of frames
     # total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -157,11 +157,11 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
         if summary and not forward_buffer and since > end_buffer:
             continue  # we don't want to save out this frame
 
-        # flag, frame = capture.read()
-        # if flag == 0:
-        #     # print("frame %d error flag" % current)
-        #     continue
-        frame = cv2.imread(os.path.join(frames_dir, video_filename, "{:010d}.jpg".format(current)))  # lets load frame images now, see if its faster
+        flag, frame = capture.read()
+        if flag == 0:
+            # print("frame %d error flag" % current)
+            continue
+        #frame = cv2.imread(os.path.join(frames_dir, video_filename, "{:010d}.jpg".format(current)))  # lets load frame images now, see if its faster
         if frame is None:
             break
         if save_static_trails and avg_frame.shape[0] < 250 and current % 50 == 0 and frame.shape == avg_frame.shape[1:]:
