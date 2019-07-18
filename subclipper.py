@@ -78,7 +78,7 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
             detections_[int(d[0])] = [d_]
     detections = detections_
 
-    if not os.path.exists(os.path.join(tracks_dir, txt_filename)) and (display_tracks or around=='tracks'):
+    if not os.path.exists(os.path.join(tracks_dir, txt_filename)):
         logging.info("Tracks file {} does not exist so will make it first...".format(os.path.join(tracks_dir,
                                                                                                   txt_filename)))
 
