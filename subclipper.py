@@ -246,10 +246,10 @@ if __name__ == '__main__':
     flags.DEFINE_string('around', 'detections',
                         'Base the shortening off of the detections or tracks?')
 
-    flags.DEFINE_boolean('display_tracks', False,
-                         'Do you want to save a video with the tracks? Default is False')
-    flags.DEFINE_boolean('display_detections', False,
-                         'Do you want to save a video with the detections? Default is False')
+    flags.DEFINE_boolean('display_tracks', True,
+                         'Do you want to save a video with the tracks? Default is True')
+    flags.DEFINE_boolean('display_detections', True,
+                         'Do you want to save a video with the detections? Default is True')
 
     flags.DEFINE_integer('start_buffer', 100,
                          'The number of frames to save pre-detection or track appearance. Default is 100')

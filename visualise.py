@@ -126,7 +126,7 @@ def visualise(video_path, detections_dir, tracks_dir, stats_dir, vis_dir,
             continue
         if frame is None:
             break
-        if save_static_trails and avg_frame.shape[0] < 250 and current % 50 == 0 and len(frame.shape) == 3:
+        if save_static_trails and avg_frame.shape[0] < 250 and current % 50 == 0 and frame.shape == avg_frame.shape[1:]:
             avg_frame = np.vstack((avg_frame, np.expand_dims(frame, 0)))
 
         if flag == 0 and current < total-2:

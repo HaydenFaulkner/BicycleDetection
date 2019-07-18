@@ -4,6 +4,10 @@ Videos to frames
 Detect on frames
 Track on detections
 
+TODO
+incorporate subclipper
+look into speed ups for only loading frames that exist in subclipper output in visualise.py
+ensure avg_frame has same shape always!
 """
 from absl import app, flags, logging
 from absl.flags import FLAGS
@@ -172,6 +176,8 @@ if __name__ == '__main__':
                          'Do you want to save image snapshots for each track? Default is True')
     flags.DEFINE_boolean('generate_video_snapshots', True,
                          'Do you want to save video snapshots for each track? Default is True')
+    flags.DEFINE_boolean('generate_summary', True,
+                         'Do you want to only save out the summary video? Default is True')
 
     try:
         app.run(main)
