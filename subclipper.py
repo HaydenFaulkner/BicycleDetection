@@ -116,7 +116,7 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
               "\nYou may need to install open cv by source not pip")
         return None
 
-    assert total == length-1 or total == length
+    assert total == length-1 or total == length or total == length+1
 
     full_out_video = cv2.VideoWriter("%s_clipped.mp4" % os.path.join(clip_dir, video_filename[:-4]),
                                      cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), 25, (width, height))
