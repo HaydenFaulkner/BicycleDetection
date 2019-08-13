@@ -206,6 +206,9 @@ def detect_wrapper(videos=None):
         for frame_path in os.listdir(os.path.join(os.path.normpath(FLAGS.frames_dir), video)):
             frame_num = int(frame_path.split(os.path.sep)[-1][:-4])
             if (frame_num-1) % FLAGS.detect_every == 0:
+                assert os.path.exists(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame_path)),\
+                    "Frame doesn't exist probably because you extracted frames at a higher 'every' " \
+                    "value than the 'detect_every' value specified"
                 frame_paths.append(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame_path))
 
     # testing contexts
