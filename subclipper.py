@@ -118,7 +118,7 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
 
     assert total == length-1 or total == length or total == length+1
 
-    full_out_video = cv2.VideoWriter("%s_clipped.mp4" % os.path.join(clip_dir, video_filename[:-4]),
+    full_out_video = cv2.VideoWriter("%s_shortened.mp4" % os.path.join(clip_dir, video_filename[:-4]),
                                      cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), 25, (width, height))
 
     track_trails = queue.Queue(maxsize=50)
@@ -241,7 +241,7 @@ if __name__ == '__main__':
                         'Directory to save the track files')
     flags.DEFINE_string('stats_dir', 'data/stats',
                         'Directory to hold the video stats')
-    flags.DEFINE_string('clips_dir', 'data/clips',
+    flags.DEFINE_string('clips_dir', 'data/shortened',
                         'Directory to hold the shortened clips')
     flags.DEFINE_string('around', 'detections',
                         'Base the shortening off of the detections or tracks?')
