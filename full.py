@@ -41,7 +41,7 @@ def per_video():
 
     for i, video in enumerate(videos):
         print("Video ({}) {} of {}".format(video, i+1, len(videos)))
-        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir)
+        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir, every=FLAGS.detect_every)
 
         frame_paths = list()
         for i, frame in enumerate(os.listdir(os.path.join(os.path.normpath(FLAGS.frames_dir), video))):
@@ -80,7 +80,7 @@ def per_process():
 
     # generate frames
     for video in tqdm(videos, desc='Generating frames'):
-        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir)
+        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir, every=FLAGS.detect_every)
 
     # make a frame list to build a detection dataset
     frame_paths = list()

@@ -43,7 +43,7 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
                                                                                                  txt_filename)))
 
         video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video_filename), FLAGS.frames_dir,
-                        FLAGS.stats_dir, overwrite=False)
+                        FLAGS.stats_dir, overwrite=False, every=FLAGS.detect_every)
 
     with open(os.path.join(stats_dir, txt_filename), 'r') as f:
         video_id, width, height, length = f.read().rstrip().split(',')

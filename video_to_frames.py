@@ -3,13 +3,39 @@ Runs videos to frames
 """
 from absl import app, flags, logging
 from absl.flags import FLAGS
-
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import cv2
 import os
 from tqdm import tqdm
 
 
-def video_to_frames(video_path, frames_dir, stats_dir, overwrite=False):
+def extract_frames(video_path, video_filename, frames_dir, start=0, end=0, every=0):
+    """
+    extract frames from a video using the fps
+
+    :param video_path: path to the video
+    :param v_id: the video id
+    :param frames: the frames as a list of ints in framenumbers
+    :return:
+    """
+    assert os.path.exists(os.path.join(video_path, video_filename))
+
+    # Use opencv to open the video
+    capture = cv2.VideoCapture(os.path.join(video_path, video_filename))
+    frame = start
+    while frame <= end:
+        ret, image = capture.read()
+        if frame % every == 0:
+            save_path = os.path.join(frames_dir, video_filename, "{:010d}.jpg".format(frame + 1))
+            if not os.path.exists(save_path):
+                # Save the extracted image
+                cv2.imwrite(save_path, image)
+        frame += 1
+
+    capture.release()
+
+
+def video_to_frames(video_path, frames_dir, stats_dir, overwrite=False, every=1):
     video_path = os.path.normpath(video_path)
     frames_dir = os.path.normpath(frames_dir)
     stats_dir = os.path.normpath(stats_dir)
@@ -30,21 +56,21 @@ def video_to_frames(video_path, frames_dir, stats_dir, overwrite=False):
                       "You may need to install open cv by source not pip")
 
         return None
-
-    # Let's go through the video and save the frames
-    for current in tqdm(range(total), desc='Extracting Frames'):
-        flag, frame = capture.read()
-        if flag == 0:
-            # print("frame %d error flag" % current)
-            continue
-        if frame is None:
-            break
-        height, width, _ = frame.shape
-        cv2.imwrite(os.path.join(frames_dir, video_filename, "{:010d}.jpg".format(current+1)), frame)
+    _, frame = capture.read()
+    height, width, _ = frame.shape
+    capture.release()
 
     os.makedirs(stats_dir, exist_ok=True)
     with open(os.path.join(stats_dir, video_filename[:-4]+'.txt'), 'w') as f:
-        f.write('{},{},{},{}'.format(video_filename, width, height, current))
+        f.write('{},{},{},{}'.format(video_filename, width, height, total))
+
+    per_device_count = int(total/FLAGS.num_workers)+1
+    frame_chunks = [[i, i+per_device_count] for i in range(0, total, per_device_count)]
+
+    with ProcessPoolExecutor(max_workers=FLAGS.num_workers) as executor:
+
+        futures = [executor.submit(extract_frames, video_path, video_filename, frames_dir, f[0], f[1], every)
+                   for f in frame_chunks]
 
     return os.path.join(frames_dir, video_filename)
 
@@ -60,7 +86,8 @@ def main(_argv):
 
     # generate frames
     for video in tqdm(videos, desc='Generating frames'):
-        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir)
+        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir,
+                        every=FLAGS.every)
 
 
 if __name__ == '__main__':
@@ -70,6 +97,11 @@ if __name__ == '__main__':
                         'Directory to hold the frames as images')
     flags.DEFINE_string('stats_dir', 'data/stats',
                         'Directory to hold the video stats')
+    flags.DEFINE_integer('every', 5,
+                         'The frame interval to extract frames. Default is 5')
+    flags.DEFINE_integer('num_workers', 8,
+                         'The number of workers should be picked so that it’s equal to number of cores on your machine'
+                         ' for max parallelization. Default is 8')
 
     try:
         app.run(main)

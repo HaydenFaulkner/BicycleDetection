@@ -195,7 +195,7 @@ def detect_wrapper(videos=None):
 
     # generate frames if need be, if they exist don't do
     for video in tqdm(videos, desc='Generating frames'):
-        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir, overwrite=False)
+        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir, overwrite=False, every=FLAGS.detect_every)
 
     frame_paths = list()
     for video in videos:
