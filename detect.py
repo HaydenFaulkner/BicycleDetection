@@ -21,6 +21,8 @@ from gluoncv.data.transforms import image as timage
 from gluoncv.data.batchify import Tuple, Stack
 from gluoncv.model_zoo import get_model
 
+# disable autotune
+os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
 class DetectSet(Dataset):
     def __init__(self, file_list):
