@@ -22,6 +22,7 @@ def extract_frames(video_path, video_filename, frames_dir, start=0, end=0, every
 
     # Use opencv to open the video
     capture = cv2.VideoCapture(os.path.join(video_path, video_filename))
+    capture.set(1, start)
     frame = start
     while frame <= end:
         ret, image = capture.read()
@@ -67,6 +68,7 @@ def video_to_frames(video_path, frames_dir, stats_dir, overwrite=False, every=1)
     per_device_count = int(total/FLAGS.num_workers)+1
     frame_chunks = [[i, i+per_device_count] for i in range(0, total, per_device_count)]
 
+    logging.info("Extracting frames from {}".format(video_filename))
     with ProcessPoolExecutor(max_workers=FLAGS.num_workers) as executor:
 
         futures = [executor.submit(extract_frames, video_path, video_filename, frames_dir, f[0], f[1], every)
