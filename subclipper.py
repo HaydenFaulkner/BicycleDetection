@@ -246,9 +246,9 @@ if __name__ == '__main__':
     flags.DEFINE_string('around', 'detections',
                         'Base the shortening off of the detections or tracks?')
 
-    flags.DEFINE_boolean('display_tracks', True,
+    flags.DEFINE_boolean('display_tracks', False,
                          'Do you want to save a video with the tracks? Default is True')
-    flags.DEFINE_boolean('display_detections', True,
+    flags.DEFINE_boolean('display_detections', False,
                          'Do you want to save a video with the detections? Default is True')
 
     flags.DEFINE_integer('start_buffer', 100,
@@ -269,8 +269,8 @@ if __name__ == '__main__':
     flags.DEFINE_string('model_path', 'models/0001/yolo3_mobilenet1_0_cycle_best.params',
                         'Path to the detection model to use')
 
-    flags.DEFINE_integer('detect_every', 5,
-                         'The frame interval to perform detection. Default is 5')
+    flags.DEFINE_integer('detect_every', 20,
+                         'The frame interval to perform detection. Default is 20')
     flags.DEFINE_float('save_detection_threshold', 0.5,
                        'The threshold on detections to them being saved to the detection save file. Default is 0.5')
 
