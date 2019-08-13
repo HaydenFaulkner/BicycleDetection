@@ -44,9 +44,14 @@ def per_video():
         video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir, every=FLAGS.detect_every)
 
         frame_paths = list()
-        for i, frame in enumerate(os.listdir(os.path.join(os.path.normpath(FLAGS.frames_dir), video))):
-            if i % FLAGS.detect_every == 0:
-                frame_paths.append(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame))
+        # for i, frame in enumerate(os.listdir(os.path.join(os.path.normpath(FLAGS.frames_dir), video))):
+        #     if i % FLAGS.detect_every == 0:
+        #         frame_paths.append(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame))
+
+        for frame_path in os.listdir(os.path.join(os.path.normpath(FLAGS.frames_dir), video)):
+            frame_num = int(frame_path.split(os.path.sep)[-1][:-4])
+            if (frame_num-1) % FLAGS.detect_every == 0:
+                frame_paths.append(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame_path))
 
         ctx = [mx.gpu(int(i)) for i in FLAGS.gpus.split(',') if i.strip()]
         ctx = ctx if ctx else [mx.cpu()]
@@ -85,9 +90,10 @@ def per_process():
     # make a frame list to build a detection dataset
     frame_paths = list()
     for video in videos:
-        for i, frame in enumerate(os.listdir(os.path.join(os.path.normpath(FLAGS.frames_dir), video))):
-            if i % FLAGS.detect_every == 0:
-                frame_paths.append(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame))
+        for frame_path in os.listdir(os.path.join(os.path.normpath(FLAGS.frames_dir), video)):
+            frame_num = int(frame_path.split(os.path.sep)[-1][:-4])
+            if (frame_num-1) % FLAGS.detect_every == 0:
+                frame_paths.append(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame_path))
 
     # testing contexts
     ctx = [mx.gpu(int(i)) for i in FLAGS.gpus.split(',') if i.strip()]

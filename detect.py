@@ -24,6 +24,7 @@ from gluoncv.model_zoo import get_model
 # disable autotune
 os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
+
 class DetectSet(Dataset):
     def __init__(self, file_list):
         super(DetectSet, self).__init__()
@@ -197,13 +198,15 @@ def detect_wrapper(videos=None):
 
     # generate frames if need be, if they exist don't do
     for video in tqdm(videos, desc='Generating frames'):
-        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir, overwrite=False, every=FLAGS.detect_every)
+        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir,
+                        overwrite=False, every=FLAGS.detect_every)
 
     frame_paths = list()
     for video in videos:
-        for i, frame in enumerate(os.listdir(os.path.join(os.path.normpath(FLAGS.frames_dir), video))):
-            if i % FLAGS.detect_every == 0:
-                frame_paths.append(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame))
+        for frame_path in os.listdir(os.path.join(os.path.normpath(FLAGS.frames_dir), video)):
+            frame_num = int(frame_path.split(os.path.sep)[-1][:-4])
+            if (frame_num-1) % FLAGS.detect_every == 0:
+                frame_paths.append(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame_path))
 
     # testing contexts
     ctx = [mx.gpu(int(i)) for i in FLAGS.gpus.split(',') if i.strip()]
@@ -240,11 +243,12 @@ if __name__ == '__main__':
                          'Batch size for detection: higher faster, but more memory intensive. Default is 2')
 
     flags.DEFINE_string('model_path', 'models/0001/yolo3_mobilenet1_0_cycle_best.params',
+    # flags.DEFINE_string('model_path', 'models/0002/faster_rcnn_best.params',
                         'Path to the detection model to use')
 
     flags.DEFINE_integer('detect_every', 5,
                          'The frame interval to perform detection. Default is 5')
-    flags.DEFINE_float('save_detection_threshold', 0.5,
+    flags.DEFINE_float('save_detection_threshold', 0.5,#0.99,
                        'The threshold on detections to them being saved to the detection save file. Default is 0.5')
 
     try:
