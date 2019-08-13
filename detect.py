@@ -10,6 +10,7 @@ from absl.flags import FLAGS
 
 import numpy as np
 import os
+import time
 from tqdm import tqdm
 
 from video_to_frames import video_to_frames
@@ -203,13 +204,22 @@ def detect_wrapper(videos=None):
 
     frame_paths = list()
     for video in videos:
-        for frame_path in os.listdir(os.path.join(os.path.normpath(FLAGS.frames_dir), video)):
-            frame_num = int(frame_path.split(os.path.sep)[-1][:-4])
-            if (frame_num-1) % FLAGS.detect_every == 0:
-                assert os.path.exists(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame_path)),\
-                    "Frame doesn't exist probably because you extracted frames at a higher 'every' " \
-                    "value than the 'detect_every' value specified"
-                frame_paths.append(os.path.join(os.path.normpath(FLAGS.frames_dir), video, frame_path))
+        with open(os.path.join(FLAGS.stats_dir, video[:-4]+'.txt'), 'r') as f:
+            video_id, width, height, length = f.read().rstrip().split(',')
+
+        frame_paths = list()
+        for frame in range(0, int(length), FLAGS.detect_every):
+            frame_path = os.path.join(FLAGS.frames_dir, video, "{:010d}.jpg".format(frame + 1))
+            if not os.path.exists(frame_path):
+                logging.warning("{} Frame image file doesn't exist. Probably because you extracted frames at "
+                                "a higher 'every' value than the 'detect_every' value specified".format(frame_path))
+                logging.warning("Will re-extract frames, you have 10 seconds to cancel")
+                time.sleep(10)
+
+                video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir,
+                                FLAGS.stats_dir, overwrite=True, every=FLAGS.detect_every)
+            else:
+                frame_paths.append(frame_path)
 
     # testing contexts
     ctx = [mx.gpu(int(i)) for i in FLAGS.gpus.split(',') if i.strip()]
@@ -245,13 +255,13 @@ if __name__ == '__main__':
     flags.DEFINE_integer('batch_size', 2,
                          'Batch size for detection: higher faster, but more memory intensive. Default is 2')
 
-    flags.DEFINE_string('model_path', 'models/0001/yolo3_mobilenet1_0_cycle_best.params',
-    # flags.DEFINE_string('model_path', 'models/0002/faster_rcnn_best.params',
+    # flags.DEFINE_string('model_path', 'models/0001/yolo3_mobilenet1_0_cycle_best.params',
+    flags.DEFINE_string('model_path', 'models/0002/faster_rcnn_best.params',
                         'Path to the detection model to use')
 
     flags.DEFINE_integer('detect_every', 5,
                          'The frame interval to perform detection. Default is 5')
-    flags.DEFINE_float('save_detection_threshold', 0.5,#0.99,
+    flags.DEFINE_float('save_detection_threshold', 0.99,
                        'The threshold on detections to them being saved to the detection save file. Default is 0.5')
 
     try:
