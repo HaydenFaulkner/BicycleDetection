@@ -130,6 +130,11 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
     since = 0
     out_count = 0
     for current in tqdm(range(1, length), desc="Visualising video: {}".format(video_filename)):
+        flag, frame = capture.read()
+        if flag == 0:
+            continue
+        if frame is None:
+            break
 
         forward_buffer = False
         if around == 'tracks':
@@ -157,13 +162,6 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
         if summary and not forward_buffer and since > end_buffer:
             continue  # we don't want to save out this frame
 
-        flag, frame = capture.read()
-        if flag == 0:
-            # print("frame %d error flag" % current)
-            continue
-        #frame = cv2.imread(os.path.join(frames_dir, video_filename, "{:010d}.jpg".format(current)))  # lets load frame images now, see if its faster
-        if frame is None:
-            break
         if save_static_trails and avg_frame.shape[0] < 250 and current % 50 == 0 and frame.shape == avg_frame.shape[1:]:
             avg_frame = np.vstack((avg_frame, np.expand_dims(frame, 0)))
 
@@ -332,7 +330,7 @@ if __name__ == '__main__':
                         'Directory to save the track files')
     flags.DEFINE_string('stats_dir', 'data/stats',
                         'Directory to hold the video stats')
-    flags.DEFINE_string('vis_dir', 'data/vis',
+    flags.DEFINE_string('vis_dir', 'data/summaries',
                         'Directory to hold the video visualisations')
     flags.DEFINE_string('img_snapshots_dir', 'data/snapshots/images',
                         'Directory to save image snapshots, if the flag --image_snapshots is used')
