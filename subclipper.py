@@ -126,16 +126,19 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
     since = 0
     out_count = 0
     capture.set(1, 0)
+    while_safety = 0
     for current in tqdm(range(length), desc="Shortening video: {}".format(video_filename)):
 
         # capture.set(1, current)
-        flag, frame = capture.read()
+        # flag, frame = capture.read()
 
-        if flag == 0 and current < total-2:
-            # print("frame %d error flag" % current)
-            continue
-        if frame is None:
-            break
+        while True:
+            while_safety+=1
+            flag, frame = capture.read()
+            if flag != 0 and frame is not None:
+                break
+            if while_safety > 1000:
+                break
 
         v_height, v_width, _ = frame.shape
         assert v_height == height

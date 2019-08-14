@@ -24,23 +24,18 @@ def extract_frames(video_path, video_filename, frames_dir, start=0, end=0, every
     capture = cv2.VideoCapture(os.path.join(video_path, video_filename))
     capture.set(1, start)
     frame = start
-    old_image = None
     while frame <= end:
         # capture.set(1, frame)
         ret, image = capture.read()
         
-        if image is None:
-            image = old_image
-            if image is None:
-                logging.error("Video Error, unable to read frames")
-                break
+        if ret == 0 or image is None:
+            continue
         if frame % every == 0:
             save_path = os.path.join(frames_dir, video_filename, "{:010d}.jpg".format(frame))
             if not os.path.exists(save_path):
                 # Save the extracted image
                 cv2.imwrite(save_path, image)
         frame += 1
-        old_image = image
 
     capture.release()
 

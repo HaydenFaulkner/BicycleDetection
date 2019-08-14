@@ -129,13 +129,23 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
 
     since = 0
     out_count = 0
+    capture.set(1, 0)
+    while_safety = 0
     for current in tqdm(range(length), desc="Visualising video: {}".format(video_filename)):
-        flag, frame = capture.read()
-        if flag == 0:
-            continue
-        if frame is None:
+        if current>5000:
             break
+        while True:
+            while_safety+=1
+            flag, frame = capture.read()
+            if flag != 0 and frame is not None:
+                break
+            if while_safety > 1000:
+                break
+        # flag, frame = capture.read()
+        # if flag == 0 or frame is None:
+        #     continue
 
+        v_height, v_width, _ = frame.shape
         frame[-50:, -250:, :] = (0, 0, 0)
         cv2.putText(frame, '{}'.format(current), (v_width-240, v_height-12), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
 
@@ -351,8 +361,8 @@ if __name__ == '__main__':
                          'Do you want to save a video with the tracks? Default is True')
     flags.DEFINE_boolean('display_detections', True,
                          'Do you want to save a video with the detections? Default is True')
-    flags.DEFINE_boolean('display_trails', True,
-                         'Do you want display trails after the tracks? Default is True')
+    flags.DEFINE_boolean('display_trails', False,
+                         'Do you want display trails after the tracks? Default is False')
     flags.DEFINE_boolean('save_static_trails', True,
                          'Do you want to save an mean image with all track trails printed? Default is True')
     flags.DEFINE_boolean('generate_image_snapshots', True,

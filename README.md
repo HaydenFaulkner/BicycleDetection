@@ -52,13 +52,15 @@ individual cyclists as clips and/or cropped box images. It can also produce an o
 
 You can check the available options for each script using the `--help` flag:
 ```commandline
-path/to/BicycleDetection$ python full.py --help
+path/to/BicycleDetection$ full.py --help
 ```
 
 You can change any parameter by using its flag and then the new value as so:
 ```commandline
-path/to/BicycleDetection$ python full.py --detect_every 5 --display_tracks=false
+path/to/BicycleDetection$ full.py --display_tracks=false
 ```
 ```commandline
-path/to/BicycleDetection$ python subclipper.py --start_buffer 10 --display_tracks
+path/to/BicycleDetection$ subclipper.py --model yolo --display_tracks
+
+path/to/BicycleDetection$ subclipper.py --model frcnn --display_detections
 ```
