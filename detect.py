@@ -199,7 +199,7 @@ def detect_wrapper(videos=None):
 
     # generate frames if need be, if they exist don't do
     for video in tqdm(videos, desc='Generating frames'):
-        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir,
+        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), os.path.normpath(FLAGS.frames_dir), os.path.normpath(FLAGS.stats_dir),
                         overwrite=False, every=FLAGS.detect_every)
 
     frame_paths = list()
@@ -209,27 +209,34 @@ def detect_wrapper(videos=None):
 
         frame_paths = list()
         for frame in range(0, int(length), FLAGS.detect_every):
-            frame_path = os.path.join(FLAGS.frames_dir, video, "{:010d}.jpg".format(frame + 1))
+            frame_path = os.path.join(os.path.normpath(FLAGS.frames_dir), video, "{:010d}.jpg".format(frame + 1))
             if not os.path.exists(frame_path):
                 logging.warning("{} Frame image file doesn't exist. Probably because you extracted frames at "
                                 "a higher 'every' value than the 'detect_every' value specified".format(frame_path))
                 logging.warning("Will re-extract frames, you have 10 seconds to cancel")
                 time.sleep(10)
 
-                video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir,
-                                FLAGS.stats_dir, overwrite=True, every=FLAGS.detect_every)
+                video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), os.path.normpath(FLAGS.frames_dir),
+                                os.path.normpath(FLAGS.stats_dir), overwrite=True, every=FLAGS.detect_every)
             else:
                 frame_paths.append(frame_path)
+
+    if 'yolo' in FLAGS.model:
+        model_path = 'models/0001/yolo3_mobilenet1_0_cycle_best.params'
+    else:
+        model_path = 'models/0002/faster_rcnn_best.params'
+        FLAGS.batch_size = 1
+        FLAGS.gpus = '0'
 
     # testing contexts
     ctx = [mx.gpu(int(i)) for i in FLAGS.gpus.split(',') if i.strip()]
     ctx = ctx if ctx else [mx.cpu()]
-
-    net, transform = prep_net(FLAGS.model_path, FLAGS.batch_size, ctx)
+    
+    net, transform = prep_net(os.path.normpath(model_path), FLAGS.batch_size, ctx)
 
     dataset, loader = prep_data(frame_paths, transform, FLAGS.batch_size, FLAGS.num_workers)
 
-    detect(net, dataset, loader, ctx, FLAGS.detections_dir, FLAGS.save_detection_threshold)
+    detect(net, dataset, loader, ctx, os.path.normpath(FLAGS.detections_dir), FLAGS.save_detection_threshold)
 
 
 def main(_argv):
@@ -246,22 +253,22 @@ if __name__ == '__main__':
     flags.DEFINE_string('stats_dir', 'data/stats',
                         'Directory to hold the video stats')
 
-    flags.DEFINE_string('gpus', '0',
+    flags.DEFINE_string('gpus', '0,2',
                         'GPU IDs to use. Use comma for multiple eg. 0,1. Default is 0')
     flags.DEFINE_integer('num_workers', 8,
-                         'The number of workers should be picked so that it’s equal to number of cores on your machine'
+                         'The number of workers should be picked so that its equal to number of cores on your machine'
                          ' for max parallelization. Default is 8')
 
-    flags.DEFINE_integer('batch_size', 2,
+    flags.DEFINE_integer('batch_size', 128,
                          'Batch size for detection: higher faster, but more memory intensive. Default is 2')
 
-    # flags.DEFINE_string('model_path', 'models/0001/yolo3_mobilenet1_0_cycle_best.params',
-    flags.DEFINE_string('model_path', 'models/0002/faster_rcnn_best.params',
-                        'Path to the detection model to use')
+    flags.DEFINE_string('model', 'yolo',
+    # flags.DEFINE_string('model', 'frcnn',
+                        'Model to use, either yolo or frcnn')
 
     flags.DEFINE_integer('detect_every', 5,
                          'The frame interval to perform detection. Default is 5')
-    flags.DEFINE_float('save_detection_threshold', 0.99,
+    flags.DEFINE_float('save_detection_threshold', 0.5,
                        'The threshold on detections to them being saved to the detection save file. Default is 0.5')
 
     try:

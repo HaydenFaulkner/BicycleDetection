@@ -22,6 +22,7 @@ from detect import prep_net, prep_data, detect
 from track import track
 from visualise import visualise
 
+os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
 def main(_argv):
     if FLAGS.per_video:
@@ -45,27 +46,34 @@ def per_video():
         video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir,
                         overwrite=False, every=FLAGS.detect_every)
 
-        with open(os.path.join(FLAGS.stats_dir, video[:-4]+'.txt'), 'r') as f:
+        with open(os.path.join(os.path.normpath(FLAGS.stats_dir), video[:-4]+'.txt'), 'r') as f:
             video_id, width, height, length = f.read().rstrip().split(',')
 
         frame_paths = list()
         for frame in range(0, int(length), FLAGS.detect_every):
-            frame_path = os.path.join(FLAGS.frames_dir, video, "{:010d}.jpg".format(frame + 1))
+            frame_path = os.path.join(os.path.normpath(FLAGS.frames_dir), video, "{:010d}.jpg".format(frame + 1))
             if not os.path.exists(frame_path):
                 logging.warning("{} Frame image file doesn't exist. Probably because you extracted frames at "
                                 "a higher 'every' value than the 'detect_every' value specified".format(frame_path))
                 logging.warning("Will re-extract frames, you have 10 seconds to cancel")
                 time.sleep(10)
 
-                video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir,
-                                FLAGS.stats_dir, overwrite=True, every=FLAGS.detect_every)
+                video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), os.path.normpath(FLAGS.frames_dir),
+                                os.path.normpath(FLAGS.stats_dir), overwrite=True, every=FLAGS.detect_every)
             else:
                 frame_paths.append(frame_path)
+        
+        if 'yolo' in FLAGS.model:
+            model_path = 'models/0001/yolo3_mobilenet1_0_cycle_best.params'
+        else:
+            model_path = 'models/0002/faster_rcnn_best.params'
+            FLAGS.batch_size = 1
+            FLAGS.gpus = '0'
 
         ctx = [mx.gpu(int(i)) for i in FLAGS.gpus.split(',') if i.strip()]
         ctx = ctx if ctx else [mx.cpu()]
 
-        net, transform = prep_net(os.path.normpath(FLAGS.model_path), FLAGS.batch_size, ctx)
+        net, transform = prep_net(os.path.normpath(model_path), FLAGS.batch_size, ctx)
 
         dataset, loader = prep_data(frame_paths, transform, FLAGS.batch_size, FLAGS.num_workers)
 
@@ -94,26 +102,26 @@ def per_process():
 
     # generate frames
     for video in tqdm(videos, desc='Generating frames'):
-        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir, FLAGS.stats_dir,
+        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), os.path.normpath(FLAGS.frames_dir), os.path.normpath(FLAGS.stats_dir),
                         every=FLAGS.detect_every)
 
     # make a frame list to build a detection dataset
     frame_paths = list()
     for video in videos:
-        with open(os.path.join(FLAGS.stats_dir, video[:-4]+'.txt'), 'r') as f:
+        with open(os.path.join(os.path.normpath(FLAGS.stats_dir), video[:-4]+'.txt'), 'r') as f:
             video_id, width, height, length = f.read().rstrip().split(',')
 
         frame_paths = list()
         for frame in range(0, int(length), FLAGS.detect_every):
-            frame_path = os.path.join(FLAGS.frames_dir, video, "{:010d}.jpg".format(frame + 1))
+            frame_path = os.path.join(os.path.normpath(FLAGS.frames_dir), video, "{:010d}.jpg".format(frame + 1))
             if not os.path.exists(frame_path):
                 logging.warning("{} Frame image file doesn't exist. Probably because you extracted frames at "
                                 "a higher 'every' value than the 'detect_every' value specified".format(frame_path))
                 logging.warning("Will re-extract frames, you have 10 seconds to cancel")
                 time.sleep(10)
 
-                video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.frames_dir,
-                                FLAGS.stats_dir, overwrite=True, every=FLAGS.detect_every)
+                video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video), os.path.normpath(FLAGS.frames_dir),
+                                os.path.normpath(FLAGS.stats_dir), overwrite=True, every=FLAGS.detect_every)
             else:
                 frame_paths.append(frame_path)
 
@@ -170,16 +178,17 @@ if __name__ == '__main__':
     flags.DEFINE_string('vid_snapshots_dir', 'data/snapshots/videos',
                         'Directory to save video snapshots, if the flag --video_snapshots is used')
 
-    flags.DEFINE_string('gpus', '0',
+    flags.DEFINE_string('gpus', '0,2',
                         'GPU IDs to use. Use comma for multiple eg. 0,1. Default is 0')
-    flags.DEFINE_integer('num_workers', 8,
+    flags.DEFINE_integer('num_workers', 6,
                          'The number of workers should be picked so that it’s equal to number of cores on your machine'
-                         ' for max parallelization. Default is 8')
+                         ' for max parallelization. Default is 6')
 
-    flags.DEFINE_integer('batch_size', 2,
+    flags.DEFINE_integer('batch_size', 128,
                          'Batch size for detection: higher faster, but more memory intensive. Default is 2')
-    flags.DEFINE_string('model_path', 'models/0001/yolo3_mobilenet1_0_cycle_best.params',
-                        'Path to the detection model to use')
+    flags.DEFINE_string('model', 'yolo',
+    # flags.DEFINE_string('model', 'frcnn',
+                        'Model to use, either yolo or frcnn')
 
     flags.DEFINE_integer('detect_every', 5,
                          'The frame interval to perform detection. Default is 5')

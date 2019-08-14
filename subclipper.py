@@ -17,6 +17,7 @@ from detect import detect_wrapper
 from track import track
 from visualisation.image import cv_plot_bbox
 
+os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
 def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around='detections',
             display_detections=False, display_tracks=False, start_buffer=100, end_buffer=50):
@@ -42,8 +43,8 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
         logging.info("Stats file {} does not exist so will make it first...".format(os.path.join(stats_dir,
                                                                                                  txt_filename)))
 
-        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video_filename), FLAGS.frames_dir,
-                        FLAGS.stats_dir, overwrite=False, every=FLAGS.detect_every)
+        video_to_frames(os.path.join(os.path.normpath(FLAGS.videos_dir), video_filename), os.path.normpath(FLAGS.frames_dir),
+                        os.path.normpath(FLAGS.stats_dir), overwrite=False, every=FLAGS.detect_every)
 
     with open(os.path.join(stats_dir, txt_filename), 'r') as f:
         video_id, width, height, length = f.read().rstrip().split(',')
@@ -82,7 +83,7 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
         logging.info("Tracks file {} does not exist so will make it first...".format(os.path.join(tracks_dir,
                                                                                                   txt_filename)))
 
-        track([txt_filename], FLAGS.detections_dir, FLAGS.stats_dir, FLAGS.tracks_dir, FLAGS.track_detection_threshold,
+        track([txt_filename], os.path.normpath(FLAGS.detections_dir), os.path.normpath(FLAGS.stats_dir), os.path.normpath(FLAGS.tracks_dir), FLAGS.track_detection_threshold,
               FLAGS.max_age, FLAGS.min_hits)
 
     with open(os.path.join(tracks_dir, txt_filename), 'r') as f:
@@ -124,7 +125,7 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
     track_trails = queue.Queue(maxsize=50)
     since = 0
     out_count = 0
-    for current in tqdm(range(1, length), desc="Shortening video: {}".format(video_filename)):
+    for current in tqdm(range(length), desc="Shortening video: {}".format(video_filename)):
 
         flag, frame = capture.read()
 
@@ -225,8 +226,8 @@ def main(_argv):
 
     # generate frames
     for video in videos:
-        subclip(os.path.join(os.path.normpath(FLAGS.videos_dir), video), FLAGS.detections_dir, FLAGS.tracks_dir,
-                FLAGS.stats_dir, FLAGS.clips_dir,
+        subclip(os.path.join(os.path.normpath(FLAGS.videos_dir), video), os.path.normpath(FLAGS.detections_dir), os.path.normpath(FLAGS.tracks_dir),
+                os.path.normpath(FLAGS.stats_dir), os.path.normpath(FLAGS.clips_dir),
                 FLAGS.around, FLAGS.display_detections, FLAGS.display_tracks, FLAGS.start_buffer, FLAGS.end_buffer)
 
 
@@ -257,17 +258,18 @@ if __name__ == '__main__':
                          'The number of frames to save post-detection or track appearance. Default is 50')
 
     # detection params if needed
-    flags.DEFINE_string('gpus', '0',
-                        'GPU IDs to use. Use comma for multiple eg. 0,1. Default is 0')
-    flags.DEFINE_integer('num_workers', 8,
-                         'The number of workers should be picked so that it’s equal to number of cores on your machine'
-                         ' for max parallelization. Default is 8')
+    flags.DEFINE_string('gpus', '0,2',
+                        'GPU IDs to use. Use comma for multiple eg. 0,1. Default is 0,2')
+    flags.DEFINE_integer('num_workers', 6,
+                         'The number of workers should be picked so that its equal to number of cores on your machine'
+                         ' for max parallelization. Default is 6')
 
-    flags.DEFINE_integer('batch_size', 2,
-                         'Batch size for detection: higher faster, but more memory intensive. Default is 2')
+    flags.DEFINE_integer('batch_size', 128,
+                         'Batch size for detection: higher faster, but more memory intensive. Default is 128')
 
-    flags.DEFINE_string('model_path', 'models/0001/yolo3_mobilenet1_0_cycle_best.params',
-                        'Path to the detection model to use')
+    flags.DEFINE_string('model', 'yolo',
+    # flags.DEFINE_string('model', 'frcnn',
+                        'Model to use, either yolo or frcnn')
 
     flags.DEFINE_integer('detect_every', 20,
                          'The frame interval to perform detection. Default is 20')

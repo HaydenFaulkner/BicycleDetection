@@ -129,7 +129,7 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
 
     since = 0
     out_count = 0
-    for current in tqdm(range(1, length), desc="Visualising video: {}".format(video_filename)):
+    for current in tqdm(range(length), desc="Visualising video: {}".format(video_filename)):
         flag, frame = capture.read()
         if flag == 0:
             continue

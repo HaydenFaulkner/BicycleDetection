@@ -24,14 +24,22 @@ def extract_frames(video_path, video_filename, frames_dir, start=0, end=0, every
     capture = cv2.VideoCapture(os.path.join(video_path, video_filename))
     capture.set(1, start)
     frame = start
+    old_image = None
     while frame <= end:
         ret, image = capture.read()
+        
+        if image is None:
+            image = old_image
+            if image is None:
+                logging.error("Video Error, unable to read frames")
+                break
         if frame % every == 0:
             save_path = os.path.join(frames_dir, video_filename, "{:010d}.jpg".format(frame + 1))
             if not os.path.exists(save_path):
                 # Save the extracted image
                 cv2.imwrite(save_path, image)
         frame += 1
+        old_image = image
 
     capture.release()
 
@@ -67,7 +75,7 @@ def video_to_frames(video_path, frames_dir, stats_dir, overwrite=False, every=1)
 
     per_device_count = int(total/FLAGS.num_workers)+1
     frame_chunks = [[i, i+per_device_count] for i in range(0, total, per_device_count)]
-
+    frame_chunks[-1][-1] = min(frame_chunks[-1][-1], total-1)
     logging.info("Extracting frames from {}".format(video_filename))
     with ProcessPoolExecutor(max_workers=FLAGS.num_workers) as executor:
 
@@ -101,9 +109,9 @@ if __name__ == '__main__':
                         'Directory to hold the video stats')
     flags.DEFINE_integer('every', 5,
                          'The frame interval to extract frames. Default is 5')
-    flags.DEFINE_integer('num_workers', 8,
+    flags.DEFINE_integer('num_workers', 6,
                          'The number of workers should be picked so that it’s equal to number of cores on your machine'
-                         ' for max parallelization. Default is 8')
+                         ' for max parallelization. Default is 6')
 
     try:
         app.run(main)
