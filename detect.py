@@ -209,7 +209,7 @@ def detect_wrapper(videos=None):
 
         frame_paths = list()
         for frame in range(0, int(length), FLAGS.detect_every):
-            frame_path = os.path.join(os.path.normpath(FLAGS.frames_dir), video, "{:010d}.jpg".format(frame + 1))
+            frame_path = os.path.join(os.path.normpath(FLAGS.frames_dir), video, "{:010d}.jpg".format(frame))
             if not os.path.exists(frame_path):
                 logging.warning("{} Frame image file doesn't exist. Probably because you extracted frames at "
                                 "a higher 'every' value than the 'detect_every' value specified".format(frame_path))

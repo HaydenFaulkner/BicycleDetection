@@ -136,6 +136,9 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
         if frame is None:
             break
 
+        frame[-50:, -250:, :] = (0, 0, 0)
+        cv2.putText(frame, '{}'.format(current), (v_width-240, v_height-12), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+
         forward_buffer = False
         if around == 'tracks':
             if current not in tracks:

@@ -125,8 +125,10 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
     track_trails = queue.Queue(maxsize=50)
     since = 0
     out_count = 0
+    capture.set(1, 0)
     for current in tqdm(range(length), desc="Shortening video: {}".format(video_filename)):
 
+        # capture.set(1, current)
         flag, frame = capture.read()
 
         if flag == 0 and current < total-2:
@@ -138,6 +140,9 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
         v_height, v_width, _ = frame.shape
         assert v_height == height
         assert v_width == width
+
+        frame[-50:, -250:, :] = (0, 0, 0)
+        cv2.putText(frame, '{}'.format(current), (v_width-240, v_height-12), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
 
         out_frame = frame.copy()
 
