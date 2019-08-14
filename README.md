@@ -27,7 +27,7 @@ Use `train_yolo.py` in the `run` directory
 ## Usage
 In the main directory there are six python scripts available to run to perform different things. The main two are:
 
-- `full.py` takes videos held in `data/unprocessed` and extracts frames, detects, tracks, adn visualises. It will create
+- `full.py` takes videos held in `data/unprocessed` and extracts frames, detects, tracks, and visualises. It will create
 a number of directories to store different data and visualisations:
     - `data/stats` to store video stats `.txt` files
     - `data/frames` to store extracted frames as `.jpg`s
@@ -64,3 +64,11 @@ path/to/BicycleDetection$ subclipper.py --model yolo --display_tracks
 
 path/to/BicycleDetection$ subclipper.py --model frcnn --display_detections
 ```
+
+Probably the two most important params for you is the `--detect_every x`  (detect every `x` many frames) and the
+ `--model x` (`x` is `yolo` or `frcnn`). The default is the `yolo` model.
+
+The yolo model is the newer faster multi-gpu model that gives lower accuracies and might also still put the box higher 
+than desired. The frcnn model is the old model which can only run on a single gpu, but is more accurate (it isn't too 
+much slower than yolo), produces the 99% confidences. If you set `--model frcnn` you might also want to set
+ `--save_detection_threshold 0.99`.
