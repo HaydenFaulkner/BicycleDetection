@@ -133,12 +133,15 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
         # flag, frame = capture.read()
 
         while True:
-            while_safety+=1
+            while_safety += 1
             flag, frame = capture.read()
             if flag != 0 and frame is not None:
                 break
             if while_safety > 1000:
                 break
+
+        if frame is None:  # should only occur at the end of a video
+            break
 
         v_height, v_width, _ = frame.shape
         assert v_height == height

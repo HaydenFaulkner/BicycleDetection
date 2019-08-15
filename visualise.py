@@ -134,12 +134,16 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
     for current in tqdm(range(length), desc="Visualising video: {}".format(video_filename)):
 
         while True:
-            while_safety+=1
+            while_safety += 1
             flag, frame = capture.read()
             if flag != 0 and frame is not None:
+                while_safety = 0
                 break
             if while_safety > 1000:
                 break
+
+        if frame is None:  # should only occur at the end of a video
+            break
 
         v_height, v_width, _ = frame.shape
         frame[-50:, -250:, :] = (0, 0, 0)
