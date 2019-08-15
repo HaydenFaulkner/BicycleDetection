@@ -140,9 +140,6 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
                 break
             if while_safety > 1000:
                 break
-        # flag, frame = capture.read()
-        # if flag == 0 or frame is None:
-        #     continue
 
         v_height, v_width, _ = frame.shape
         frame[-50:, -250:, :] = (0, 0, 0)
