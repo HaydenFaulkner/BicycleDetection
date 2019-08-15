@@ -99,7 +99,7 @@ def video_to_frames(video_path, frames_dir, stats_dir, overwrite=False, every=1)
         f.write('{},{},{},{}'.format(video_filename, width, height, total))
 
     per_device_count = int(total/FLAGS.num_workers)+1
-    frame_chunks = [[i, i+per_device_count] for i in range(0, total, 1000)]
+    frame_chunks = [[i, i+1000] for i in range(0, total, 1000)]
     frame_chunks[-1][-1] = min(frame_chunks[-1][-1], total-1)
     logging.info("Extracting frames from {}".format(video_filename))
     with ProcessPoolExecutor(max_workers=FLAGS.num_workers) as executor:
