@@ -7,6 +7,29 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import cv2
 import os
 from tqdm import tqdm
+import sys
+
+def print_progress(iteration, total, prefix='', suffix='', decimals=3, bar_length=100):
+    """
+    Call in a loop to create terminal progress bar
+
+    :param iteration: current iteration
+    :param total: total iterations
+    :param prefix: prefix string
+    :param suffix: suffix string
+    :param decimals: positive number of decimals in percent complete
+    :param bar_length: character length of bar
+    :return:
+    """
+
+    format_str = "{0:." + str(decimals) + "f}"
+    percents = format_str.format(100 * (iteration / float(total)))
+    filled_length = int(round(bar_length * iteration / float(total)))
+    bar = '█' * filled_length + '-' * (bar_length - filled_length)
+    sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
+    if iteration == total:
+        sys.stdout.write('\x1b[2K\r')
+    sys.stdout.flush()
 
 
 def extract_frames(video_path, video_filename, frames_dir, start=0, end=0, every=0):
@@ -76,13 +99,15 @@ def video_to_frames(video_path, frames_dir, stats_dir, overwrite=False, every=1)
         f.write('{},{},{},{}'.format(video_filename, width, height, total))
 
     per_device_count = int(total/FLAGS.num_workers)+1
-    frame_chunks = [[i, i+per_device_count] for i in range(0, total, per_device_count)]
+    frame_chunks = [[i, i+per_device_count] for i in range(0, total, 1000)]
     frame_chunks[-1][-1] = min(frame_chunks[-1][-1], total-1)
     logging.info("Extracting frames from {}".format(video_filename))
     with ProcessPoolExecutor(max_workers=FLAGS.num_workers) as executor:
 
         futures = [executor.submit(extract_frames, video_path, video_filename, frames_dir, f[0], f[1], every)
                    for f in frame_chunks]
+        for i, f in enumerate(as_completed(futures)):
+            print_progress(i, len(frame_chunks), prefix="Extracting Frames:", suffix='Complete')
 
     return os.path.join(frames_dir, video_filename)
 
