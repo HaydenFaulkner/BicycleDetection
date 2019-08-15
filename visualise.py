@@ -132,8 +132,7 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
     capture.set(1, 0)
     while_safety = 0
     for current in tqdm(range(length), desc="Visualising video: {}".format(video_filename)):
-        if current>5000:
-            break
+
         while True:
             while_safety+=1
             flag, frame = capture.read()
