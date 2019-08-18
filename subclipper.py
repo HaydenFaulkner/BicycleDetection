@@ -259,42 +259,42 @@ if __name__ == '__main__':
                         'Base the shortening off of the detections or tracks?')
 
     flags.DEFINE_boolean('display_tracks', False,
-                         'Do you want to save a video with the tracks? Default is True')
+                         'Do you want to save a video with the tracks?')
     flags.DEFINE_boolean('display_detections', False,
-                         'Do you want to save a video with the detections? Default is True')
+                         'Do you want to save a video with the detections?')
 
     flags.DEFINE_integer('start_buffer', 100,
-                         'The number of frames to save pre-detection or track appearance. Default is 100')
+                         'The number of frames to save pre-detection or track appearance.')
     flags.DEFINE_integer('end_buffer', 50,
-                         'The number of frames to save post-detection or track appearance. Default is 50')
+                         'The number of frames to save post-detection or track appearance.')
 
     # detection params if needed
     flags.DEFINE_string('gpus', '0,2',
-                        'GPU IDs to use. Use comma for multiple eg. 0,1. Default is 0,2')
+                        'GPU IDs to use. Use comma for multiple eg. 0,1.')
     flags.DEFINE_integer('num_workers', 6,
                          'The number of workers should be picked so that its equal to number of cores on your machine'
-                         ' for max parallelization. Default is 6')
+                         ' for max parallelization.')
 
     flags.DEFINE_integer('batch_size', 128,
-                         'Batch size for detection: higher faster, but more memory intensive. Default is 128')
+                         'Batch size for detection: higher faster, but more memory intensive.')
 
     flags.DEFINE_string('model', 'yolo',
     # flags.DEFINE_string('model', 'frcnn',
                         'Model to use, either yolo or frcnn')
 
     flags.DEFINE_integer('detect_every', 20,
-                         'The frame interval to perform detection. Default is 20')
+                         'The frame interval to perform detection.')
     flags.DEFINE_float('save_detection_threshold', 0.5,
-                       'The threshold on detections to them being saved to the detection save file. Default is 0.5')
+                       'The threshold on detections to them being saved to the detection save file.')
 
     # tracking params if needed
     flags.DEFINE_float('track_detection_threshold', 0.5,
-                       'The threshold on detections to them being tracked. Default is 0.5')
+                       'The threshold on detections to them being tracked.')
     flags.DEFINE_integer('max_age', 40,
                          'Maximum frames between detections before a track is deleted. Bigger means tracks handle'
-                         'occlusions better but also might overstay their welcome. Default is 40')
+                         'occlusions better but also might overstay their welcome.')
     flags.DEFINE_integer('min_hits', 2,
-                         'Minimum number of detections before a track is displayed. Default is 2')
+                         'Minimum number of detections before a track is displayed.')
 
     try:
         app.run(main)

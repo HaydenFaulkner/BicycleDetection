@@ -180,51 +180,51 @@ if __name__ == '__main__':
                         'Directory to save video snapshots, if the flag --video_snapshots is used')
 
     flags.DEFINE_string('gpus', '0,2',
-                        'GPU IDs to use. Use comma for multiple eg. 0,1. Default is 0')
+                        'GPU IDs to use. Use comma for multiple eg. 0,1.')
     flags.DEFINE_integer('num_workers', 6,
                          'The number of workers should be picked so that it’s equal to number of cores on your machine'
-                         ' for max parallelization. Default is 6')
+                         ' for max parallelization.')
 
     flags.DEFINE_integer('batch_size', 128,
-                         'Batch size for detection: higher faster, but more memory intensive. Default is 2')
+                         'Batch size for detection: higher faster, but more memory intensive.')
     flags.DEFINE_string('model', 'yolo',
     # flags.DEFINE_string('model', 'frcnn',
                         'Model to use, either yolo or frcnn')
 
     flags.DEFINE_integer('detect_every', 5,
-                         'The frame interval to perform detection. Default is 5')
+                         'The frame interval to perform detection.')
     flags.DEFINE_float('save_detection_threshold', 0.5,
-                       'The threshold on detections to them being saved to the detection save file. Default is 0.5')
+                       'The threshold on detections to them being saved to the detection save file.')
 
     flags.DEFINE_float('track_detection_threshold', 0.5,
-                       'The threshold on detections to them being tracked. Default is 0.5')
+                       'The threshold on detections to them being tracked.')
     flags.DEFINE_integer('max_age', 40,
                          'Maximum frames between detections before a track is deleted. Bigger means tracks handle'
-                         'occlusions better but also might overstay their welcome. Default is 40')
+                         'occlusions better but also might overstay their welcome.')
     flags.DEFINE_integer('min_hits', 2,
-                         'Minimum number of detections before a track is displayed. Default is 2')
+                         'Minimum number of detections before a track is displayed.')
 
     flags.DEFINE_string('around', 'detections',
                         'Base the shortening off of the detections or tracks?')
     flags.DEFINE_integer('start_buffer', 100,
-                         'The number of frames to save pre-detection or track appearance. Default is 100')
+                         'The number of frames to save pre-detection or track appearance.')
     flags.DEFINE_integer('end_buffer', 50,
-                         'The number of frames to save post-detection or track appearance. Default is 50')
+                         'The number of frames to save post-detection or track appearance.')
 
     flags.DEFINE_boolean('display_tracks', True,
-                         'Do you want to save a video with the tracks? Default is True')
+                         'Do you want to save a video with the tracks?')
     flags.DEFINE_boolean('display_detections', True,
-                         'Do you want to save a video with the detections? Default is True')
-    flags.DEFINE_boolean('display_trails', True,
-                         'Do you want display trails after the tracks? Default is True')
+                         'Do you want to save a video with the detections?')
+    flags.DEFINE_boolean('display_trails', False,
+                         'Do you want display trails after the tracks?')
     flags.DEFINE_boolean('save_static_trails', True,
-                         'Do you want to save an mean image with all track trails printed? Default is True')
+                         'Do you want to save an mean image with all track trails printed?')
     flags.DEFINE_boolean('generate_image_snapshots', True,
-                         'Do you want to save image snapshots for each track? Default is True')
+                         'Do you want to save image snapshots for each track?')
     flags.DEFINE_boolean('generate_video_snapshots', True,
-                         'Do you want to save video snapshots for each track? Default is True')
+                         'Do you want to save video snapshots for each track?')
     flags.DEFINE_boolean('summary', True,
-                         'Do you want to only save out the summary video? Default is True')
+                         'Do you want to only save out the summary video?')
 
     try:
         app.run(main)

@@ -353,24 +353,24 @@ if __name__ == '__main__':
     flags.DEFINE_string('around', 'detections',
                         'Base the shortening off of the detections or tracks?')
     flags.DEFINE_integer('start_buffer', 100,
-                         'The number of frames to save pre-detection or track appearance. Default is 100')
+                         'The number of frames to save pre-detection or track appearance.')
     flags.DEFINE_integer('end_buffer', 50,
-                         'The number of frames to save post-detection or track appearance. Default is 50')
+                         'The number of frames to save post-detection or track appearance.')
 
     flags.DEFINE_boolean('display_tracks', True,
-                         'Do you want to save a video with the tracks? Default is True')
+                         'Do you want to save a video with the tracks?')
     flags.DEFINE_boolean('display_detections', True,
-                         'Do you want to save a video with the detections? Default is True')
+                         'Do you want to save a video with the detections?')
     flags.DEFINE_boolean('display_trails', False,
-                         'Do you want display trails after the tracks? Default is False')
+                         'Do you want display trails after the tracks?')
     flags.DEFINE_boolean('save_static_trails', True,
-                         'Do you want to save an mean image with all track trails printed? Default is True')
+                         'Do you want to save an mean image with all track trails printed?')
     flags.DEFINE_boolean('generate_image_snapshots', True,
-                         'Do you want to save image snapshots for each track? Default is True')
+                         'Do you want to save image snapshots for each track?')
     flags.DEFINE_boolean('generate_video_snapshots', True,
-                         'Do you want to save video snapshots for each track? Default is True')
+                         'Do you want to save video snapshots for each track?')
     flags.DEFINE_boolean('summary', True,
-                         'Do you want to only save out the summary video? Default is True')
+                         'Do you want to only save out the summary video?')
 
     try:
         app.run(main)
