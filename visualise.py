@@ -136,7 +136,8 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
         while True:
             while_safety += 1
             flag, frame = capture.read()
-            if flag != 0 and frame is not None:
+            # if flag != 0 and frame is not None:
+            if frame is not None:
                 while_safety = 0
                 break
             if while_safety > 1000:

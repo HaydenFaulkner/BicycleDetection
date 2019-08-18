@@ -55,7 +55,8 @@ def extract_frames(video_path, video_filename, frames_dir, start=0, end=0, every
         if while_safety > 500:
             break
 
-        if ret == 0 or image is None:
+        # if ret == 0 or image is None:
+        if image is None:
             while_safety += 1
             continue
         if frame % every == 0:
