@@ -135,7 +135,8 @@ def subclip(video_path, detections_dir, tracks_dir, stats_dir, clip_dir, around=
         while True:
             while_safety += 1
             flag, frame = capture.read()
-            if flag != 0 and frame is not None:
+            # if flag != 0 and frame is not None:
+            if frame is not None:
                 break
             if while_safety > 1000:
                 break
