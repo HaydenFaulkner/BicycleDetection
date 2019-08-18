@@ -169,15 +169,17 @@ def detect(net, dataset, loader, ctx, detections_dir, save_detection_threshold):
                 id = id.flat[valid_pred].astype(int)
                 score = score.flat[valid_pred]
                 for id_, box_, score_ in zip(id, box, score):
+                    vid_id = os.path.normpath(dataset.sample_path(int(sidx))).split(os.path.sep)[-2]
+                    frame = int(os.path.normpath(dataset.sample_path(int(sidx))).split(os.path.sep)[-1][:-4])
+                    if vid_id not in boxes:
+                        boxes[vid_id] = []
                     if score_ > save_detection_threshold:
-                        vid_id = os.path.normpath(dataset.sample_path(int(sidx))).split(os.path.sep)[-2]
-                        frame = int(os.path.normpath(dataset.sample_path(int(sidx))).split(os.path.sep)[-1][:-4])
-                        if vid_id in boxes:
-                            boxes[vid_id].append([frame, id_, score_]+list(box_))
-                        else:
-                            boxes[vid_id] = [[frame, id_, score_]+list(box_)]
+                        boxes[vid_id].append([frame, id_, score_]+list(box_))
 
     for vid_id, boxs in tqdm(boxes.items(), desc='Writing out detection files'):
+        if len(boxs) < 1:
+            logging.warning("No detections were found for {}. Consider lowering the"
+                            " --save_detection_threshold.".format(vid_id))
         boxs.sort(key=lambda x: x[0])
         with open(os.path.join(detections_dir, vid_id[:-4] + '.txt'), 'w') as f:
 
