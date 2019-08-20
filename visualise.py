@@ -31,10 +31,10 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
     img_snapshots_dir = os.path.normpath(img_snapshots_dir)
     vid_snapshots_dir = os.path.normpath(vid_snapshots_dir)
 
-    if not generate_image_snapshots:
-        img_snapshots_dir = None
-    if not generate_video_snapshots:
-        vid_snapshots_dir = None
+    # if not generate_image_snapshots:
+    #     img_snapshots_dir = None
+    # if not generate_video_snapshots:
+    #     vid_snapshots_dir = None
 
     colors = dict()
     for i in range(200):
@@ -238,7 +238,7 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
         full_out_video.write(out_frame)
         out_count += 1
 
-        if img_snapshots_dir and current in tracks:
+        if generate_image_snapshots and current in tracks:
             for t in tracks[current]:
                 # save the part of the frame containing the cyclist
                 x1, y1, x2, y2 = int(t[2]), int(t[3]), int(t[4]), int(t[5])
@@ -250,7 +250,7 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
                     if (x2 - x1) * (y2 - y1) > w * h and x1 > 0 and y1 > 0 and x2 < width and y2 < height:
                         img_track_snapshots[t[0]] = frame[y1:y2, x1:x2, :]
 
-        if vid_snapshots_dir and current in tracks:
+        if generate_video_snapshots and current in tracks:
             # if the track wasn't found it has died, close it's associated clip
             current_tracks = [t[0] for t in tracks[current]]
             del_tids = []
@@ -295,13 +295,13 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
         length, out_count, int(100*float(out_count)/length)))
 
     # write out the snapshot images
-    if img_snapshots_dir:
+    if generate_image_snapshots:
         for tid, img in img_track_snapshots.items():
             out_path = os.path.join(img_snapshots_dir, "{}_{:03d}.jpg".format(video_filename[:-4], tid))
             cv2.imwrite(out_path, img)
 
     # release remaining snapshot track clips
-    if vid_snapshots_dir:
+    if generate_video_snapshots:
         for k, vid in vid_track_snapshots.items():
             vid.release()
 
@@ -364,11 +364,11 @@ if __name__ == '__main__':
                          'Do you want to save a video with the detections?')
     flags.DEFINE_boolean('display_trails', False,
                          'Do you want display trails after the tracks?')
-    flags.DEFINE_boolean('save_static_trails', True,
+    flags.DEFINE_boolean('save_static_trails', False,
                          'Do you want to save an mean image with all track trails printed?')
     flags.DEFINE_boolean('generate_image_snapshots', True,
                          'Do you want to save image snapshots for each track?')
-    flags.DEFINE_boolean('generate_video_snapshots', True,
+    flags.DEFINE_boolean('generate_video_snapshots', False,
                          'Do you want to save video snapshots for each track?')
     flags.DEFINE_boolean('summary', True,
                          'Do you want to only save out the summary video?')
