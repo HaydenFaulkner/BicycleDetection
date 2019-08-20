@@ -55,7 +55,10 @@ class FasterRCNNDefaultInferenceTransform(object):
         """Apply transform to inference image/label."""
         # resize shorter side but keep in max_size
         h, w, _ = src.shape
-        img = timage.resize_short_within(src, self._short, self._max_size, interp=1)
+        r = self._max_size/w
+
+        img = timage.imresize(src, int(w*r), int(h*r), interp=1)
+        # img = timage.resize_short_within(src, self._short, self._max_size, interp=1)
         img = mx.nd.image.to_tensor(img)
         img = mx.nd.image.normalize(img, mean=self._mean, std=self._std)
         return img, sidx
@@ -157,7 +160,8 @@ def detect(net, dataset, loader, ctx, detections_dir, save_detection_threshold):
                 det_ids.append(ids)
                 det_scores.append(scores)
                 # clip to image size
-                det_bboxes.append(bboxes.clip(0, batch[0].shape[2]))
+                # det_bboxes.append(bboxes.clip(0, batch[0].shape[-2]))
+                det_bboxes.append(bboxes)
                 sidxs_.append(sidx)
 
             pbar.update(batch[0].shape[0])
@@ -165,7 +169,10 @@ def detect(net, dataset, loader, ctx, detections_dir, save_detection_threshold):
             for id, score, box, sidx in zip(*[as_numpy(x) for x in [det_ids, det_scores, det_bboxes, sidxs_]]):
 
                 valid_pred = np.where(id.flat >= 0)[0]  # get the boxes that have a class assigned
-                box = box[valid_pred, :] / batch[0].shape[2]  # normalise boxes
+                box[valid_pred, 0] = box[valid_pred, 0] / batch[0].shape[-1]  # normalise boxes
+                box[valid_pred, 1] = box[valid_pred, 1] / batch[0].shape[-2]  # normalise boxes
+                box[valid_pred, 2] = box[valid_pred, 2] / batch[0].shape[-1]  # normalise boxes
+                box[valid_pred, 3] = box[valid_pred, 3] / batch[0].shape[-2]  # normalise boxes
                 id = id.flat[valid_pred].astype(int)
                 score = score.flat[valid_pred]
                 for id_, box_, score_ in zip(id, box, score):
