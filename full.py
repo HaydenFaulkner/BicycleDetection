@@ -217,11 +217,11 @@ if __name__ == '__main__':
                          'Do you want to save a video with the detections?')
     flags.DEFINE_boolean('display_trails', False,
                          'Do you want display trails after the tracks?')
-    flags.DEFINE_boolean('save_static_trails', True,
+    flags.DEFINE_boolean('save_static_trails', False,
                          'Do you want to save an mean image with all track trails printed?')
     flags.DEFINE_boolean('generate_image_snapshots', True,
                          'Do you want to save image snapshots for each track?')
-    flags.DEFINE_boolean('generate_video_snapshots', True,
+    flags.DEFINE_boolean('generate_video_snapshots', False,
                          'Do you want to save video snapshots for each track?')
     flags.DEFINE_boolean('summary', True,
                          'Do you want to only save out the summary video?')
