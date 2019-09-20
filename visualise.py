@@ -19,8 +19,8 @@ from visualisation.image import cv_plot_bbox
 def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis_dir,
               img_snapshots_dir, vid_snapshots_dir, around='detections',
               start_buffer=100, end_buffer=50,
-              display_tracks=True, display_detections=True, display_trails=True, save_static_trails=True,
-              generate_image_snapshots=True, generate_video_snapshots=True, summary=True):
+              display_tracks=False, display_detections=False, display_trails=False, save_static_trails=False,
+              generate_image_snapshots=False, generate_video_snapshots=False, summary=True, full=False):
 
     video_path = os.path.normpath(video_path)
     frames_dir = os.path.normpath(frames_dir)
@@ -98,7 +98,7 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
 
     tracks = tracks_
 
-    # # load video
+    # load video
     capture = cv2.VideoCapture(os.path.join(video_path, video_filename))
     #
     # # Get the total number of frames
@@ -111,13 +111,14 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
     #
     # assert total == length-1 or total == length or total == length+1
 
+    summary_out_video = None
+    full_out_video = None
     if summary:
-        name = 'summary'
-    else:
-        name = 'full'
-
-    full_out_video = cv2.VideoWriter("{}_{}.mp4".format(os.path.join(vis_dir, video_filename[:-4]), name),
-                                     cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), 25, (width, height))
+        summary_out_video = cv2.VideoWriter("{}_summary.mp4".format(os.path.join(vis_dir, video_filename[:-4])),
+                                            cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), 25, (width, height))
+    if full:
+        full_out_video = cv2.VideoWriter("{}_full.mp4".format(os.path.join(vis_dir, video_filename[:-4])),
+                                         cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), 25, (width, height))
 
     track_trails = queue.Queue(maxsize=50)
     if save_static_trails:
@@ -146,97 +147,97 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
         if frame is None:  # should only occur at the end of a video
             break
 
-        v_height, v_width, _ = frame.shape
-        frame[-50:, -250:, :] = (0, 0, 0)
-        cv2.putText(frame, '{}'.format(current), (v_width-240, v_height-12), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+        if full_out_video is not None or summary_out_video is not None:
+            v_height, v_width, _ = frame.shape
+            frame[-50:, -250:, :] = (0, 0, 0)
+            cv2.putText(frame, '{}'.format(current), (v_width-240, v_height-12), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
 
-        forward_buffer = False
-        if around == 'tracks':
-            if current not in tracks:
-                since += 1
+            forward_buffer = False
+            if around == 'tracks':
+                if current not in tracks:
+                    since += 1
+                else:
+                    since = 0
+                for check_forward in range(current, current + start_buffer):
+                    if check_forward in tracks:
+                        forward_buffer = True
+                        break
+
+            elif around == 'detections':
+                if current not in detections:
+                    since += 1
+                else:
+                    since = 0
+                for check_forward in range(current, current + start_buffer):
+                    if check_forward in detections:
+                        forward_buffer = True
+                        break
             else:
-                since = 0
-            for check_forward in range(current, current + start_buffer):
-                if check_forward in tracks:
-                    forward_buffer = True
-                    break
+                ValueError()
 
-        elif around == 'detections':
-            if current not in detections:
-                since += 1
-            else:
-                since = 0
-            for check_forward in range(current, current + start_buffer):
-                if check_forward in detections:
-                    forward_buffer = True
-                    break
-        else:
-            ValueError()
+            if summary and not forward_buffer and since > end_buffer:
+                continue  # we don't want to save out this frame
 
-        if summary and not forward_buffer and since > end_buffer:
-            continue  # we don't want to save out this frame
+            if save_static_trails and avg_frame.shape[0] < 250 and current % 50 == 0 and frame.shape == avg_frame.shape[1:]:
+                avg_frame = np.vstack((avg_frame, np.expand_dims(frame, 0)))
 
-        if save_static_trails and avg_frame.shape[0] < 250 and current % 50 == 0 and frame.shape == avg_frame.shape[1:]:
-            avg_frame = np.vstack((avg_frame, np.expand_dims(frame, 0)))
+            out_frame = frame.copy()
 
-        v_height, v_width, _ = frame.shape
-        assert v_height == height
-        assert v_width == width
+            if display_tracks:
+                if current in tracks:
+                    out_frame = cv_plot_bbox(out_path=None,
+                                             img=out_frame,
+                                             bboxes=[t[2:] for t in tracks[current]],
+                                             scores=[t[1] for t in tracks[current]],  # todo should do in tracking code
+                                             labels=[t[0] for t in tracks[current]],
+                                             thresh=0,
+                                             colors=colors,
+                                             class_names=[])
 
-        out_frame = frame.copy()
+                    if display_trails:
+                        track_trails_frame = {}
+                        for t in tracks[current]:
+                            # make trails per track
+                            track_trails_frame[t[0]] = (int(t[2] + ((t[4] - t[2]) / 2)), int(t[5]))
 
-        if display_tracks:
-            if current in tracks:
-                out_frame = cv_plot_bbox(out_path=None,
-                                         img=out_frame,
-                                         bboxes=[t[2:] for t in tracks[current]],
-                                         scores=[t[1] for t in tracks[current]],  # todo should do in tracking code
-                                         labels=[t[0] for t in tracks[current]],
-                                         thresh=0,
-                                         colors=colors,
-                                         class_names=[])
+                        # put in the queue that exists over frames
+                        if track_trails.full():
+                            track_trails.get()
+                        track_trails.put(track_trails_frame)
 
-                if display_trails:
-                    track_trails_frame = {}
-                    for t in tracks[current]:
-                        # make trails per track
-                        track_trails_frame[t[0]] = (int(t[2] + ((t[4] - t[2]) / 2)), int(t[5]))
+                        # draw the trail as dots that fade with time
+                        for i, trails in enumerate(list(track_trails.queue)):
+                            alpha = math.pow(i / len(list(track_trails.queue)), 2)
+                            overlay = out_frame.copy()
+                            for tid, dot in trails.items():
+                                cv2.circle(overlay, dot, 2, colors[tid], -1)
+                            out_frame = cv2.addWeighted(overlay, alpha, out_frame, 1 - alpha, 0)
 
-                    # put in the queue that exists over frames
-                    if track_trails.full():
-                        track_trails.get()
-                    track_trails.put(track_trails_frame)
+                    if save_static_trails:
+                        for t in tracks[current]:
+                            # make trails per track
+                            if t[0] in static_track_trails:
+                                static_track_trails[t[0]].append((int(t[2] + ((t[4] - t[2]) / 2)), int(t[5])))
+                            else:
+                                static_track_trails[t[0]] = [(int(t[2] + ((t[4] - t[2]) / 2)), int(t[5]))]
 
-                    # draw the trail as dots that fade with time
-                    for i, trails in enumerate(list(track_trails.queue)):
-                        alpha = math.pow(i / len(list(track_trails.queue)), 2)
-                        overlay = out_frame.copy()
-                        for tid, dot in trails.items():
-                            cv2.circle(overlay, dot, 2, colors[tid], -1)
-                        out_frame = cv2.addWeighted(overlay, alpha, out_frame, 1 - alpha, 0)
+            if display_detections:
+                if current in detections:
+                    out_frame = cv_plot_bbox(out_path=None,
+                                             img=out_frame,
+                                             bboxes=[d[2:] for d in detections[current]],
+                                             scores=[d[1] for d in detections[current]],
+                                             labels=[d[0] for d in detections[current]],
+                                             thresh=0,
+                                             colors={0: (1, 255, 1)},
+                                             class_names=['cyclist'])
 
-                if save_static_trails:
-                    for t in tracks[current]:
-                        # make trails per track
-                        if t[0] in static_track_trails:
-                            static_track_trails[t[0]].append((int(t[2] + ((t[4] - t[2]) / 2)), int(t[5])))
-                        else:
-                            static_track_trails[t[0]] = [(int(t[2] + ((t[4] - t[2]) / 2)), int(t[5]))]
-
-        if display_detections:
-            if current in detections:
-                out_frame = cv_plot_bbox(out_path=None,
-                                         img=out_frame,
-                                         bboxes=[d[2:] for d in detections[current]],
-                                         scores=[d[1] for d in detections[current]],
-                                         labels=[d[0] for d in detections[current]],
-                                         thresh=0,
-                                         colors={0: (1, 255, 1)},
-                                         class_names=['cyclist'])
-
-        # write out the main frame
-        full_out_video.write(out_frame)
-        out_count += 1
+            # write out the main frame
+            if summary_out_video is not None:
+                summary_out_video.write(out_frame)
+            if full_out_video is not None:
+                full_out_video.write(out_frame)
+            out_count += 1
 
         if generate_image_snapshots and current in tracks:
             for t in tracks[current]:
@@ -244,11 +245,11 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
                 x1, y1, x2, y2 = int(t[2]), int(t[3]), int(t[4]), int(t[5])
                 if t[0] not in img_track_snapshots:
                     img_track_snapshots[t[0]] = frame[y1:y2, x1:x2, :]
-                else:
-                    h, w, _ = img_track_snapshots[t[0]].shape
-                    # replace if has a bigger area, we are assuming the bigger the better
-                    if (x2 - x1) * (y2 - y1) > w * h and x1 > 0 and y1 > 0 and x2 < width and y2 < height:
-                        img_track_snapshots[t[0]] = frame[y1:y2, x1:x2, :]
+                # else:  # never replace first one
+                #     h, w, _ = img_track_snapshots[t[0]].shape
+                #     # replace if has a bigger area, we are assuming the bigger the better
+                #     if (x2 - x1) * (y2 - y1) > w * h and x1 > 0 and y1 > 0 and x2 < width and y2 < height:
+                #         img_track_snapshots[t[0]] = frame[y1:y2, x1:x2, :]
 
         if generate_video_snapshots and current in tracks:
             # if the track wasn't found it has died, close it's associated clip
@@ -288,11 +289,16 @@ def visualise(video_path, frames_dir, detections_dir, tracks_dir, stats_dir, vis
 
     if full_out_video is not None:
         full_out_video.release()
+    if summary_out_video is not None:
+        summary_out_video.release()
     if capture is not None:
         capture.release()
 
-    logging.info("\n\nOriginal video length: {}\nNew video length: {} ({}% of original)".format(
-        length, out_count, int(100*float(out_count)/length)))
+    if out_count > 0:
+        logging.info("\n\nOriginal video length: {}\nNew video length: {} ({}% of original)".format(
+            length, out_count, int(100*float(out_count)/length)))
+    else:
+        logging.info("\n\nNo output video saved")
 
     # write out the snapshot images
     if generate_image_snapshots:
@@ -331,7 +337,7 @@ def main(_argv):
                   FLAGS.img_snapshots_dir, FLAGS.vid_snapshots_dir, FLAGS.around,
                   FLAGS.start_buffer, FLAGS.end_buffer,
                   FLAGS.display_tracks, FLAGS.display_detections, FLAGS.display_trails, FLAGS.save_static_trails,
-                  FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots, FLAGS.summary)
+                  FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots, FLAGS.summary, FLAGS.full)
 
 if __name__ == '__main__':
     flags.DEFINE_string('videos_dir', 'data/unprocessed',
@@ -358,9 +364,9 @@ if __name__ == '__main__':
     flags.DEFINE_integer('end_buffer', 50,
                          'The number of frames to save post-detection or track appearance.')
 
-    flags.DEFINE_boolean('display_tracks', True,
+    flags.DEFINE_boolean('display_tracks', False,
                          'Do you want to save a video with the tracks?')
-    flags.DEFINE_boolean('display_detections', True,
+    flags.DEFINE_boolean('display_detections', False,
                          'Do you want to save a video with the detections?')
     flags.DEFINE_boolean('display_trails', False,
                          'Do you want display trails after the tracks?')
@@ -370,8 +376,10 @@ if __name__ == '__main__':
                          'Do you want to save image snapshots for each track?')
     flags.DEFINE_boolean('generate_video_snapshots', False,
                          'Do you want to save video snapshots for each track?')
-    flags.DEFINE_boolean('summary', True,
+    flags.DEFINE_boolean('summary', False,
                          'Do you want to only save out the summary video?')
+    flags.DEFINE_boolean('full', False,
+                         'Do you want to only save out the full video?')
 
     try:
         app.run(main)

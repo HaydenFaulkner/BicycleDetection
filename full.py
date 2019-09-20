@@ -88,7 +88,7 @@ def per_video():
                   FLAGS.img_snapshots_dir, FLAGS.vid_snapshots_dir, FLAGS.around,
                   FLAGS.start_buffer, FLAGS.end_buffer,
                   FLAGS.display_tracks, FLAGS.display_detections, FLAGS.display_trails, FLAGS.save_static_trails,
-                  FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots, FLAGS.summary)
+                  FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots, FLAGS.summary, FLAGS.full)
 
 
 def per_process():
@@ -155,7 +155,7 @@ def per_process():
                   FLAGS.img_snapshots_dir, FLAGS.vid_snapshots_dir, FLAGS.around,
                   FLAGS.start_buffer, FLAGS.end_buffer,
                   FLAGS.display_tracks, FLAGS.display_detections, FLAGS.display_trails, FLAGS.save_static_trails,
-                  FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots, FLAGS.summary)
+                  FLAGS.generate_image_snapshots, FLAGS.generate_video_snapshots, FLAGS.summary, FLAGS.full)
 
 
 if __name__ == '__main__':
@@ -223,8 +223,10 @@ if __name__ == '__main__':
                          'Do you want to save image snapshots for each track?')
     flags.DEFINE_boolean('generate_video_snapshots', False,
                          'Do you want to save video snapshots for each track?')
-    flags.DEFINE_boolean('summary', True,
+    flags.DEFINE_boolean('summary', False,
                          'Do you want to only save out the summary video?')
+    flags.DEFINE_boolean('full', False,
+                         'Do you want to only save out the full video?')
 
     try:
         app.run(main)
