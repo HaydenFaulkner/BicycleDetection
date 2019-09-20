@@ -211,9 +211,9 @@ if __name__ == '__main__':
     flags.DEFINE_integer('end_buffer', 50,
                          'The number of frames to save post-detection or track appearance.')
 
-    flags.DEFINE_boolean('display_tracks', True,
+    flags.DEFINE_boolean('display_tracks', False,
                          'Do you want to save a video with the tracks?')
-    flags.DEFINE_boolean('display_detections', True,
+    flags.DEFINE_boolean('display_detections', False,
                          'Do you want to save a video with the detections?')
     flags.DEFINE_boolean('display_trails', False,
                          'Do you want display trails after the tracks?')
@@ -224,9 +224,9 @@ if __name__ == '__main__':
     flags.DEFINE_boolean('generate_video_snapshots', False,
                          'Do you want to save video snapshots for each track?')
     flags.DEFINE_boolean('summary', False,
-                         'Do you want to only save out the summary video?')
+                         'Do you want to save out a summary video?')
     flags.DEFINE_boolean('full', False,
-                         'Do you want to only save out the full video?')
+                         'Do you want to save out the full video?')
 
     try:
         app.run(main)
